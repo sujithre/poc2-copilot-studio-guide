@@ -1,0 +1,42 @@
+# Manifest contains real document filenames - excluded from public repo
+manifest.json
+
+# Source documents
+docs/
+*.pdf
+*.pptx
+*.docx
+
+# Intermediate pipeline outputs (large, regenerable)
+PDF_pages/
+PDF_vision/
+chunks/
+kpi/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local smoke test artifacts
+_smoke_*.py
