@@ -57,7 +57,12 @@ def main() -> int:
         credential=credential(),
     )
 
-    vec_q = VectorizedQuery(vector=vec, k_nearest_neighbors=args.top, fields="vector")
+    # Newer azure-search-documents SDKs renamed the param to `k`. Try the new
+    # name first; fall back to the old `k_nearest_neighbors` for older SDKs.
+    try:
+        vec_q = VectorizedQuery(vector=vec, k=args.top, fields="vector")
+    except TypeError:
+        vec_q = VectorizedQuery(vector=vec, k_nearest_neighbors=args.top, fields="vector")
 
     kwargs = dict(
         search_text=args.query,            # hybrid: BM25 + vector
@@ -67,7 +72,7 @@ def main() -> int:
         select=[
             "id", "doc_id", "page", "chunk_type", "fiscal_period", "period_kind",
             "page_kind", "title", "brand", "brand_mentions", "therapeutic_area", "part_id",
-            "is_forward_looking", "source_uri", "text",
+            "is_forward_looking", "source_uri", "chunk",
         ],
     )
     if not args.no_semantic:
@@ -93,7 +98,7 @@ def main() -> int:
     for i, r in enumerate(results, 1):
         score = r.get("@search.score")
         rerank = r.get("@search.reranker_score")
-        text = (r.get("text") or "").replace("\n", " ").strip()
+        text = (r.get("chunk") or "").replace("\n", " ").strip()
         snippet = text[:280] + ("..." if len(text) > 280 else "")
         print(f"#{i}  score={score:.3f}" + (f"  rerank={rerank:.3f}" if rerank is not None else ""))
         print(f"    [{r.get('chunk_type')}] {r.get('doc_id')} p{r.get('page')}  fp={r.get('fiscal_period')}  fwd={r.get('is_forward_looking')}")

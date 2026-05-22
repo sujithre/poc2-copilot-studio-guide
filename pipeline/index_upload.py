@@ -30,7 +30,7 @@ def chunk_to_doc(rec: dict, vector: list[float]) -> dict:
     """Map a chunk JSON record to the Azure Search field shape."""
     return {
         "id": rec["id"],
-        "text": rec.get("text", "") or rec.get("title", ""),
+        "chunk": rec.get("text", "") or rec.get("title", ""),
         "vector": vector,
         # doc-level
         "doc_id": rec.get("doc_id", ""),
@@ -61,6 +61,9 @@ def chunk_to_doc(rec: dict, vector: list[float]) -> dict:
         "is_official_disclosure": bool(rec.get("is_official_disclosure", False)),
         "tags": rec.get("tags") or [],
         "source_uri": rec.get("source_uri", ""),
+        "metadata_storage_path": rec.get("url", "") or rec.get("source_uri", ""),
+        "url": rec.get("url", "") or rec.get("source_uri", ""),
+        "filepath": rec.get("filepath", "") or rec.get("source_uri", ""),
         "extractor_version": rec.get("extractor_version", ""),
         "prompt_version": rec.get("prompt_version", ""),
     }
