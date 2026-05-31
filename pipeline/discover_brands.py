@@ -156,17 +156,29 @@ def _llm_validate(client, deployment: str, token: str, contexts: list[str]) -> d
         f"Candidate token: {token}\n\n"
         f"Sample contexts where it appears:\n" + "\n".join(f"- {c}" for c in contexts)
     )
-    resp = client.chat.completions.create(
-        model=deployment,
-        temperature=0,
-        max_tokens=200,
-        timeout=30,
-        response_format={"type": "json_object"},
-        messages=[
+    # Reasoning models (gpt-5, o-series) require `max_completion_tokens` and
+    # do not accept `temperature`. Older models (gpt-4o, gpt-4.1) use
+    # `max_tokens` and accept `temperature=0`. Detect from deployment name.
+    is_reasoning = any(
+        deployment.lower().startswith(p) for p in ("gpt-5", "o1", "o3", "o4")
+    ) or "gpt-5" in deployment.lower()
+    kwargs: dict = {
+        "model": deployment,
+        "timeout": 30,
+        "response_format": {"type": "json_object"},
+        "messages": [
             {"role": "system", "content": _LLM_SYSTEM},
             {"role": "user", "content": user},
         ],
-    )
+    }
+    if is_reasoning:
+        # Reasoning models burn tokens internally; bump cap so the visible
+        # JSON answer isn't truncated to nothing.
+        kwargs["max_completion_tokens"] = 2000
+    else:
+        kwargs["max_tokens"] = 200
+        kwargs["temperature"] = 0
+    resp = client.chat.completions.create(**kwargs)
     raw = resp.choices[0].message.content or "{}"
     try:
         return json.loads(raw)

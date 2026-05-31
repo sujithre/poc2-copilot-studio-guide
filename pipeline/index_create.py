@@ -23,6 +23,9 @@ from azure.search.documents.indexes.models import (
     SemanticPrioritizedFields,
     SemanticField,
     SemanticSearch,
+    ScoringProfile,
+    FreshnessScoringFunction,
+    FreshnessScoringParameters,
 )
 
 from auth import credential
@@ -60,6 +63,18 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
         SimpleField(name="page",              type=SearchFieldDataType.Int32,  filterable=True, sortable=True),
         SearchableField(name="title",         type=SearchFieldDataType.String, analyzer_name="en.microsoft"),
         SimpleField(name="page_kind",         type=SearchFieldDataType.String, filterable=True, facetable=True),
+        # ---- period / basis disambiguation (lets the agent separate March vs
+        #      March-YTD(==Q1) vs FY-outlook, and actual vs LO vs target cells)
+        SimpleField(name="period_scope",      type=SearchFieldDataType.String, filterable=True, facetable=True),
+        SimpleField(name="period_label",      type=SearchFieldDataType.String, filterable=True, sortable=True),
+        SimpleField(name="period_end_date",   type=SearchFieldDataType.String, filterable=True, sortable=True),
+        # DateTimeOffset twin of period_end_date, used by the freshness scoring
+        # profile for recency boosting (latest period wins by default).
+        SimpleField(name="recency_date",      type=SearchFieldDataType.DateTimeOffset, filterable=True, sortable=True),
+        SimpleField(name="measure_basis",     type=SearchFieldDataType.String, filterable=True, facetable=True),
+        SearchField(name="comparison_basis",  type=SearchFieldDataType.Collection(SearchFieldDataType.String), filterable=True, facetable=True),
+        SimpleField(name="page_role",         type=SearchFieldDataType.String, filterable=True, facetable=True),
+        SimpleField(name="has_comments",      type=SearchFieldDataType.Boolean, filterable=True),
         # ---- chunk-level
         SimpleField(name="chunk_type",        type=SearchFieldDataType.String, filterable=True, facetable=True),
         SimpleField(name="section",           type=SearchFieldDataType.String, filterable=True),
@@ -125,13 +140,38 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
                     keywords_fields=[
                         SemanticField(field_name="brand"),
                         SemanticField(field_name="therapeutic_area"),
+                        SemanticField(field_name="period_label"),
                     ],
                 ),
             )
         ]
     )
 
-    return SearchIndex(name=name, fields=fields, vector_search=vector_search, semantic_search=semantic_search)
+    # Gentle recency boost: documents covering a more recent period_end_date
+    # score higher, so when two files report the same figure the newer one wins
+    # by default (the agent can still pin an older period via a filter).
+    scoring_profiles = [
+        ScoringProfile(
+            name="recency-boost",
+            functions=[
+                FreshnessScoringFunction(
+                    field_name="recency_date",
+                    boost=2.0,
+                    parameters=FreshnessScoringParameters(boosting_duration="P730D"),
+                    interpolation="linear",
+                ),
+            ],
+        )
+    ]
+
+    return SearchIndex(
+        name=name,
+        fields=fields,
+        vector_search=vector_search,
+        semantic_search=semantic_search,
+        scoring_profiles=scoring_profiles,
+        default_scoring_profile="recency-boost",
+    )
 
 
 def main() -> None:

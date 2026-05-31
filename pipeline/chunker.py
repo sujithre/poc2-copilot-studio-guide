@@ -34,7 +34,7 @@ from common import (
     split_markdown_sections,
 )
 
-EXTRACTOR_VERSION = "0.1.0"
+EXTRACTOR_VERSION = "0.2.0"
 
 # Map FigureKind from vision schema -> chunk_type bucket
 CHART_KINDS = {
@@ -110,6 +110,97 @@ def figure_chunk_type(fig_kind: str) -> str:
     return "figure"
 
 
+# Last day of each month (non-leap; February handled separately).
+_MONTH_END = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30,
+              7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
+_QUARTER_END_MONTH = {"1": 3, "2": 6, "3": 9, "4": 12}
+
+
+def _last_day(year: int, month: int) -> int:
+    if month == 2 and (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
+        return 29
+    return _MONTH_END.get(month, 30)
+
+
+def derive_period_end_date(fiscal_period: str, doc: dict) -> str:
+    """Best-effort calendar end date (YYYY-MM-DD) for a fiscal_period string.
+
+    Handles: 'YYYY-MM' (monthly close), 'Qn_YYYY', 'FY_YYYY'. Falls back to the
+    document publication_date (also coerced to a month end) or ''.
+    """
+    fp = (fiscal_period or "").strip()
+    # Monthly close: 2026-03
+    m = re.fullmatch(r"(\d{4})-(\d{2})", fp)
+    if m:
+        y, mo = int(m.group(1)), int(m.group(2))
+        if 1 <= mo <= 12:
+            return f"{y:04d}-{mo:02d}-{_last_day(y, mo):02d}"
+    # Quarter: Q1_2026
+    m = re.fullmatch(r"[Qq]([1-4])_(\d{4})", fp)
+    if m:
+        mo = _QUARTER_END_MONTH[m.group(1)]
+        y = int(m.group(2))
+        return f"{y:04d}-{mo:02d}-{_last_day(y, mo):02d}"
+    # Full year: FY_2026
+    m = re.fullmatch(r"(?:FY|fy)_(\d{4})", fp)
+    if m:
+        y = int(m.group(1))
+        return f"{y:04d}-12-31"
+    # Fall back to publication_date (YYYY-MM or YYYY-MM-DD)
+    pub = (doc.get("publication_date") or "").strip()
+    m = re.fullmatch(r"(\d{4})-(\d{2})(?:-(\d{2}))?", pub)
+    if m:
+        y, mo = int(m.group(1)), int(m.group(2))
+        d = int(m.group(3)) if m.group(3) else _last_day(y, mo)
+        if 1 <= mo <= 12:
+            return f"{y:04d}-{mo:02d}-{d:02d}"
+    return ""
+
+
+def _comparison_to_basis(text: str) -> list[str]:
+    """Map a free-text comparison string to comparison_basis tokens."""
+    t = (text or "").lower()
+    out: list[str] = []
+    if any(k in t for k in ("prior year", "prior-year", "vs py", " py", "yoy", "y/y", "last year")):
+        out.append("vs_py")
+    if any(k in t for k in ("tgt", "target", "budget", "plan")):
+        out.append("vs_tgt")
+    if any(k in t for k in ("latest outlook", "vs lo", " lo", "outlook")):
+        out.append("vs_lo")
+    if "consensus" in t:
+        out.append("vs_consensus")
+    # de-dup, keep order
+    seen: set[str] = set()
+    return [x for x in out if not (x in seen or seen.add(x))]
+
+
+def kpi_meta_override(meta: dict, kp: dict) -> dict:
+    """Return a copy of the page meta with period/basis fields specialised to a
+    single KPI cell. This is what makes the LO grid usable: each emitted KPI
+    chunk carries its OWN period_scope / measure_basis / comparison_basis even
+    though they all share one page.
+    """
+    m = dict(meta)
+    if kp.get("period"):
+        m["fiscal_period"] = kp["period"]
+    ps = kp.get("period_scope")
+    if ps and ps != "unknown":
+        m["period_scope"] = ps
+    mb = kp.get("measure_basis")
+    if mb and mb != "unknown":
+        m["measure_basis"] = mb
+    elif kp.get("basis"):
+        # legacy free-text basis: keep page value but record nothing wrong
+        pass
+    cb = kp.get("comparison_basis") or _comparison_to_basis(kp.get("comparison", ""))
+    if cb:
+        m["comparison_basis"] = cb
+    ped = kp.get("period_end_date") or derive_period_end_date(m.get("fiscal_period", ""), {})
+    if ped:
+        m["period_end_date"] = ped
+    return m
+
+
 def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
     raw_brands = page_obj.get("brands") or []
     canonical_brands, unknown_brands = brands.split_known_unknown(raw_brands)
@@ -140,17 +231,39 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         seen_ta: set[str] = set()
         ta = [t for t in inferred if not (t in seen_ta or seen_ta.add(t))]
 
+    # Period: prefer the page-level fiscal_period; only fall back to the document
+    # value when the page did not determine one. A monthly deck legitimately
+    # contains single-month, YTD and full-year-outlook pages, so blindly copying
+    # the document fiscal_period onto every page was the root cause of the agent
+    # confusing March, March-YTD (==Q1) and FY-outlook figures.
+    page_fp = (page_obj.get("fiscal_period") or "").strip()
+    if page_fp and page_fp.upper() != "UNKNOWN":
+        fiscal_period = page_fp
+    else:
+        fiscal_period = doc.get("fiscal_period") or "UNKNOWN"
+
+    period_end_date = (page_obj.get("period_end_date") or "").strip() \
+        or derive_period_end_date(fiscal_period, doc)
+
     return {
         "doc_id": doc["doc_id"],
         "doc_type": doc["doc_type"],
-        "fiscal_period": page_obj.get("fiscal_period") or doc.get("fiscal_period") or "UNKNOWN",
+        "fiscal_period": fiscal_period,
         "period_kind": doc.get("period_kind", ""),
         "mbr_period": doc.get("mbr_period", "") or "",
         "publication_date": doc.get("publication_date") or "",
         "geography": doc.get("geography", ""),
         "page": page_obj.get("page"),
-        "title": page_obj.get("title", ""),
+        "title": doc.get("title") or page_obj.get("title", "") or doc["doc_id"],
         "page_kind": page_obj.get("page_kind", ""),
+        # Period / basis disambiguation (page-level defaults; KPI rows specialise)
+        "period_scope": page_obj.get("period_scope") or "unknown",
+        "period_label": page_obj.get("period_label", "") or "",
+        "period_end_date": period_end_date,
+        "measure_basis": page_obj.get("measure_basis") or "unknown",
+        "comparison_basis": page_obj.get("comparison_basis") or [],
+        "page_role": page_obj.get("page_role") or "standard",
+        "has_comments": bool(page_obj.get("has_comments", False)),
         "therapeutic_area": ta,
         "brand": canonical_brands,
         "brand_mentions": mentions,
@@ -160,6 +273,10 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         "is_official_disclosure": bool(doc.get("is_official_disclosure", False)),
         "tags": doc.get("tags", []),
         "source_uri": doc["source"],
+        "url": (doc.get("sharepoint_url") or doc["source"]) + (
+            f"#page={page_obj.get('page')}" if page_obj.get("page") else ""
+        ),
+        "filepath": doc.get("sharepoint_url") or doc["source"],
         "extractor_version": EXTRACTOR_VERSION,
         "prompt_version": env("VISION_PROMPT_VERSION", "v1"),
     }
@@ -249,7 +366,7 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
     # KPI rows (one chunk per KPI for fine-grained retrieval / agent grounding)
     for kp in page_obj.get("kpis", []) or []:
         text = render_kpi(kp)
-        yield primary, emit_text(meta, "kpi_row", text, section=kp.get("name", ""))
+        yield primary, emit_text(kpi_meta_override(meta, kp), "kpi_row", text, section=kp.get("name", ""))
 
 
 def render_figure(fig: dict) -> str:
@@ -286,6 +403,8 @@ def render_kpi(kp: dict) -> str:
         kp.get("name", ""),
         f"value={kp.get('value','')} {kp.get('unit','')}".strip(),
         f"period={kp.get('period','')}",
+        f"period_scope={kp.get('period_scope','')}" if kp.get("period_scope") and kp.get("period_scope") != "unknown" else "",
+        f"measure_basis={kp.get('measure_basis','')}" if kp.get("measure_basis") and kp.get("measure_basis") != "unknown" else "",
         f"basis={kp.get('basis','')}" if kp.get("basis") else "",
         f"comparison={kp.get('comparison','')}" if kp.get("comparison") else "",
         f"delta={kp.get('delta_value','')} {kp.get('delta_unit','')}".strip(),
@@ -419,7 +538,7 @@ def chunks_from_ir_page(doc: dict, page_obj: dict, brands: BrandRegistry,
         yield primary, emit_text(meta, ct, render_figure(fig), section=fig.get("caption", ""))
 
     for kp in page_obj.get("kpis", []) or []:
-        yield primary, emit_text(meta, "kpi_row", render_kpi(kp), section=kp.get("name", ""))
+        yield primary, emit_text(kpi_meta_override(meta, kp), "kpi_row", render_kpi(kp), section=kp.get("name", ""))
 
 
 # ---------------------------------------------------------------------------

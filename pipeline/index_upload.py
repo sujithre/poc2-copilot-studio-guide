@@ -26,6 +26,22 @@ def embed_batch(client: AzureOpenAI, deployment: str, texts: list[str]) -> list[
     return [d.embedding for d in resp.data]
 
 
+def _to_recency_date(value: str) -> str | None:
+    """Coerce a 'YYYY-MM-DD' (or 'YYYY-MM') period_end_date string to an ISO 8601
+    DateTimeOffset that Azure Search accepts. Returns None when unparseable so the
+    freshness scoring function simply skips the document."""
+    v = (value or "").strip()
+    if not v:
+        return None
+    import re as _re
+    m = _re.fullmatch(r"(\d{4})-(\d{2})(?:-(\d{2}))?", v)
+    if not m:
+        return None
+    y, mo = m.group(1), m.group(2)
+    d = m.group(3) or "01"
+    return f"{y}-{mo}-{d}T00:00:00Z"
+
+
 def chunk_to_doc(rec: dict, vector: list[float]) -> dict:
     """Map a chunk JSON record to the Azure Search field shape."""
     return {
@@ -44,6 +60,15 @@ def chunk_to_doc(rec: dict, vector: list[float]) -> dict:
         "page": int(rec.get("page") or 0),
         "title": rec.get("title", ""),
         "page_kind": rec.get("page_kind", ""),
+        # period / basis disambiguation
+        "period_scope": rec.get("period_scope", "") or "unknown",
+        "period_label": rec.get("period_label", "") or "",
+        "period_end_date": rec.get("period_end_date", "") or "",
+        "recency_date": _to_recency_date(rec.get("period_end_date", "") or rec.get("publication_date", "")),
+        "measure_basis": rec.get("measure_basis", "") or "unknown",
+        "comparison_basis": rec.get("comparison_basis") or [],
+        "page_role": rec.get("page_role", "") or "standard",
+        "has_comments": bool(rec.get("has_comments", False)),
         # chunk-level
         "chunk_type": rec.get("chunk_type", ""),
         "section": rec.get("section", "") or "",

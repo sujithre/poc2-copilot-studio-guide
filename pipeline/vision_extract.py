@@ -46,13 +46,17 @@ def call_vision(client: AzureOpenAI, deployment: str, image_b64: str, doc_id: st
         f"page: {page_no}\n"
         "Extract the page now. Return JSON only that matches the structured-output schema."
     )
-    completion = client.beta.chat.completions.parse(
-        model=deployment,
-        temperature=0,
-        max_tokens=8000,
-        timeout=180,
-        response_format=PageExtraction,
-        messages=[
+    # Reasoning models (gpt-5, o-series) require `max_completion_tokens` and
+    # do not accept custom `temperature`. Older models (gpt-4o, gpt-4.1) use
+    # `max_tokens` and accept `temperature=0`. Detect from deployment name.
+    is_reasoning = any(
+        deployment.lower().startswith(p) for p in ("gpt-5", "o1", "o3", "o4")
+    ) or "gpt-5" in deployment.lower()
+    kwargs: dict = {
+        "model": deployment,
+        "timeout": 180,
+        "response_format": PageExtraction,
+        "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
             {
                 "role": "user",
@@ -62,7 +66,14 @@ def call_vision(client: AzureOpenAI, deployment: str, image_b64: str, doc_id: st
                 ],
             },
         ],
-    )
+    }
+    if is_reasoning:
+        kwargs["max_completion_tokens"] = 16000
+        # temperature is fixed at 1 for reasoning models - omit it
+    else:
+        kwargs["max_tokens"] = 8000
+        kwargs["temperature"] = 0
+    completion = client.beta.chat.completions.parse(**kwargs)
     msg = completion.choices[0].message
     if getattr(msg, "refusal", None):
         raise RuntimeError(f"Vision model refused: {msg.refusal}")
@@ -93,8 +104,22 @@ def extract_one_page(client: AzureOpenAI, deployment: str, prompt_version: str,
         obj["page"] = page_no
         status = "ok"
     except Exception as e:
-        obj = {"doc_id": doc_id, "page": page_no, "error": str(e)}
-        status = f"error: {e}"
+        # Unwrap tenacity RetryError to surface the real underlying API error
+        # (e.g. BadRequestError body with the specific reason).
+        underlying = getattr(e, "last_attempt", None)
+        if underlying is not None:
+            try:
+                root = underlying.exception()
+                if root is not None:
+                    e = root
+            except Exception:
+                pass
+        body = getattr(getattr(e, "response", None), "text", "")
+        err_msg = f"{type(e).__name__}: {e}"
+        if body and body not in err_msg:
+            err_msg = f"{err_msg} | body={body[:500]}"
+        obj = {"doc_id": doc_id, "page": page_no, "error": err_msg}
+        status = f"error: {err_msg}"
 
     obj["_cache_key"] = key
     obj["_status"] = status

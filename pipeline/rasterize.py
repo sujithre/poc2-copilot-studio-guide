@@ -13,6 +13,11 @@ from tqdm import tqdm
 
 from common import env, load_manifest, docs_to_process, paths
 
+# Silence benign MuPDF warnings (e.g. "No common ancestor in structure tree")
+# that appear for PDFs exported from PowerPoint/Word with malformed accessibility
+# tags. Pages still render correctly; only the stderr noise is suppressed.
+fitz.TOOLS.mupdf_display_errors(False)
+
 
 def page_hash(pix: fitz.Pixmap) -> str:
     return hashlib.sha256(pix.tobytes("png")).hexdigest()
