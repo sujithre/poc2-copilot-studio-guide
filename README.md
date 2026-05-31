@@ -234,3 +234,29 @@ cd C:\Projects\Bio\POC2\pipeline
 python _smoke_helpers.py    # brand registry + Part detector + style classifier
 python _smoke_chunker.py    # synthetic IR notes -> chunks
 ```
+
+## Period / measure-basis disambiguation (manifest.json change)
+
+`manifest.json` is gitignored (it carries real document filenames), so this
+README is the tracked record of its schema. The `metadata_fields` list gained
+**8 new fields** to stop the financials agent confusing look-alike brand rows
+(e.g. single-month vs March-YTD vs FY Latest-Outlook) and to drive recency:
+
+| Field | Type | Purpose |
+|---|---|---|
+| `period_scope` | string | `month` / `ytd` / `quarter` / `half` / `full_year` / `unknown`. Separates a single-month row from a year-to-date ("Q1" == March YTD) row. |
+| `period_label` | string | Human label of the period (e.g. `March YTD 2026`). Also a semantic keywords field. |
+| `period_end_date` | string | `YYYY-MM-DD` end of the period; source for the recency twin. |
+| `recency_date` | DateTimeOffset | ISO datetime derived from `period_end_date`; drives the `recency-boost` scoring profile (freshness, P730D, boost 2.0) so the latest period surfaces first. |
+| `measure_basis` | string | `actual` / `outlook_lo` / `target` / `mixed`. On the LO grid the Q1 column is `actual`, the FY column is `outlook_lo` — set per KPI cell. |
+| `comparison_basis` | collection | `vs_py` / `vs_tgt` / `vs_lo` / `vs_consensus`; matches the comparator the user named. |
+| `page_role` | string | `brand_matrix` (the LO grid, complete numbers) vs `narrative` (driver "Comments vs TGT" text) vs `standard`. |
+| `has_comments` | bool | True when the page carries the driver/commentary narrative — preferred for "why did X change" questions. |
+
+These fields are produced by `pipeline/schema.py` (vision extraction) and
+`pipeline/chunker.py` (per-KPI override for LO-grid cells), created in
+`pipeline/index_create.py` (incl. the `recency-boost` default scoring profile),
+populated in `pipeline/index_upload.py`, and consumed by the Financials agent
+instructions in `pipeline/agents/specs.py` and `COPILOT_STUDIO_SETUP-v2.md`.
+Re-run `vision_extract -> chunker -> index_create -> index_upload` to backfill.
+
