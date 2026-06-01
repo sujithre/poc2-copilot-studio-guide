@@ -230,25 +230,41 @@ def normalize_ytd_label(label: str, year: str) -> tuple[str, str, str]:
     return fp, "ytd", token
 
 
+def _add_quarter(out: list[str], q: str, yr: str) -> None:
+    if yr:
+        out.extend([f"Q{q} {yr}", f"Q{q}_{yr}", f"Q{q}'{yr[2:]}", f"{yr} Q{q}"])
+    else:
+        out.append(f"Q{q}")
+
+
+def _month_fiscal_period(period: str, year: str) -> str:
+    """Map a single-month label ("Mar"/"March") + year to a YYYY-MM token."""
+    t = (period or "").lower()
+    for name, num in _MONTH_NUM.items():
+        if re.search(rf"\b{name}\b", t):
+            if year:
+                return f"{year}-{num:02d}"
+            return ""
+    return ""
+
+
 def period_search_aliases(fiscal_period: str, period_label: str,
                           period_end_date: str = "") -> str:
     """Searchable period aliases so hybrid/BM25 retrieval matches quarter-style
     queries (e.g. "Q1 net sales") even when the printed label is "March YTD".
     A March-YTD page in a monthly deck *is* Q1, but that word never appears in
     the source text, so we synthesise it from the normalized period.
+
+    NOTE: this is the *page/slide-level* helper. KPI rows use
+    kpi_period_aliases() which is scope-aware so single-month and rolling
+    figures never get mis-tagged as the quarter.
     """
     fp = (fiscal_period or "").strip()
     out: list[str] = []
 
-    def add_quarter(q: str, yr: str) -> None:
-        if yr:
-            out.extend([f"Q{q} {yr}", f"Q{q}_{yr}", f"Q{q}'{yr[2:]}", f"{yr} Q{q}"])
-        else:
-            out.append(f"Q{q}")
-
     mq = re.match(r"^Q([1-4])_(\d{4})$", fp)
     if mq:
-        add_quarter(mq.group(1), mq.group(2))
+        _add_quarter(out, mq.group(1), mq.group(2))
     elif re.match(r"^FY_\d{4}$", fp):
         yr = fp.split("_")[1]
         out += [fp, f"FY {yr}", f"full year {yr}"]
@@ -263,7 +279,7 @@ def period_search_aliases(fiscal_period: str, period_label: str,
     if token:
         mq2 = re.match(r"^Q([1-4])$", token)
         if mq2:
-            add_quarter(mq2.group(1), yr)
+            _add_quarter(out, mq2.group(1), yr)
         else:
             out.append(f"{token} {yr}".strip())
 
@@ -271,6 +287,46 @@ def period_search_aliases(fiscal_period: str, period_label: str,
         out.append(period_label)
     # dedupe preserving order
     return " ".join(dict.fromkeys(out))
+
+
+def kpi_period_aliases(kp: dict, fallback_fp: str = "", period_label: str = "",
+                       period_end_date: str = "") -> str:
+    """Scope-aware search aliases for a SINGLE KPI cell.
+
+    Critically, the quarter token is derived from the KPI's OWN period/scope,
+    not the page default. This prevents single-month figures (e.g. "Mar" 310)
+    and rolling/annual figures (e.g. "1FP26" 4,144) from being mis-tagged as
+    "Q1" just because they sit on a Q1 page. Only genuine quarter or
+    cumulative-YTD-mapping-to-quarter rows get the Q-token.
+    """
+    period = (kp.get("period") or "").strip()
+    scope = (kp.get("period_scope") or "").strip().lower()
+    yr = _year_from(period, fallback_fp, period_label, period_end_date)
+    out: list[str] = []
+
+    mq = re.search(r"\bQ([1-4])\b", period)
+    if mq:
+        # KPI explicitly names its quarter.
+        _add_quarter(out, mq.group(1), yr)
+    elif scope == "ytd":
+        # Cumulative YTD -> calendar period (March YTD == Q1).
+        _, _, token = normalize_ytd_label(period, yr)
+        tq = re.match(r"^Q([1-4])$", token or "")
+        if tq:
+            _add_quarter(out, tq.group(1), yr)
+        elif token:
+            out.append(f"{token} {yr}".strip())
+    elif scope == "month":
+        # Single month: month aliases only - NEVER a quarter token.
+        if period:
+            out.append(f"{period} {yr}".strip())
+    elif _looks_like_fiscal_period(period):
+        out.append(period)
+
+    # Always include the human label for lexical matching.
+    if period:
+        out.append(period)
+    return " ".join(dict.fromkeys(o for o in out if o))
 
 
 def kpi_meta_override(meta: dict, kp: dict) -> dict:
@@ -282,15 +338,27 @@ def kpi_meta_override(meta: dict, kp: dict) -> dict:
     m = dict(meta)
     if kp.get("period"):
         kp_period = kp["period"].strip()
+        kp_scope = (kp.get("period_scope") or "").strip().lower()
         if _looks_like_fiscal_period(kp_period):
             # A genuinely normalized period (e.g. "FY_2026" on the LO grid):
             # safe to specialise the filterable fiscal_period.
             m["fiscal_period"] = kp_period
+        elif kp_scope == "month":
+            # Single-month cell on a quarter page: this row belongs to the
+            # month, NOT the quarter. Pin fiscal_period to YYYY-MM so a
+            # `fiscal_period eq 'Q1_2026'` filter does not wrongly pull it in.
+            yr = _year_from(kp_period, meta.get("fiscal_period", ""),
+                            meta.get("period_label", ""),
+                            meta.get("period_end_date", ""))
+            mfp = _month_fiscal_period(kp_period, yr)
+            if mfp:
+                m["fiscal_period"] = mfp
+            m["period_label"] = kp_period
         elif kp_period:
-            # Freeform label such as "March YTD". Keep the page-level normalized
-            # fiscal_period (e.g. Q1_2026) so the chunk stays linked to the
-            # quarter and survives `fiscal_period eq 'Q1_2026'` filters; expose
-            # the human label via period_label.
+            # Freeform cumulative label such as "March YTD". Keep the page-level
+            # normalized fiscal_period (e.g. Q1_2026) so the chunk stays linked
+            # to the quarter and survives `fiscal_period eq 'Q1_2026'` filters;
+            # expose the human label via period_label.
             m["period_label"] = kp_period
     ps = kp.get("period_scope")
     if ps and ps != "unknown":
@@ -491,9 +559,9 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
     for kp in page_obj.get("kpis", []) or []:
         kmeta = kpi_meta_override(meta, kp)
         text = render_kpi(kp)
-        aliases = period_search_aliases(kmeta.get("fiscal_period", ""),
-                                        kmeta.get("period_label", ""),
-                                        kmeta.get("period_end_date", ""))
+        aliases = kpi_period_aliases(kp, kmeta.get("fiscal_period", ""),
+                                     kmeta.get("period_label", ""),
+                                     kmeta.get("period_end_date", ""))
         if aliases:
             text = f"[{aliases}] {text}"
         yield primary, emit_text(kmeta, "kpi_row", text, section=kp.get("name", ""))
