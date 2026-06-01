@@ -4,6 +4,7 @@ Schema is identical for all indices (same chunk shape) - only the name differs.
 Honors manifest.indices[*].azure_index verbatim (e.g., 'finsight-us-financial-results').
 """
 from __future__ import annotations
+import argparse
 import json
 
 from azure.search.documents.indexes import SearchIndexClient
@@ -175,6 +176,18 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Create/update POC2 search indices.")
+    parser.add_argument(
+        "--drop", action="store_true",
+        help="Delete each index before recreating it (clean rebuild; removes "
+             "stale orphan documents left behind by content-keyed upserts).",
+    )
+    parser.add_argument(
+        "--only", default="",
+        help="Restrict to a single logical index (e.g. financial_results).",
+    )
+    args = parser.parse_args()
+
     endpoint = env("AZURE_SEARCH_ENDPOINT", required=True)
     aoai_endpoint = env("AZURE_OPENAI_ENDPOINT", required=True)
     embed_deployment = env("AZURE_OPENAI_EMBED_DEPLOYMENT", required=True)
@@ -184,10 +197,17 @@ def main() -> None:
     manifest = load_manifest()
     created = []
     for logical, cfg in manifest["indices"].items():
+        if args.only and logical != args.only:
+            continue
         name = cfg["azure_index"]  # honor manifest verbatim (e.g., finsight-us-...)
+        if args.drop:
+            try:
+                client.delete_index(name)
+            except Exception:
+                pass  # index may not exist yet
         idx = index_def(name, aoai_endpoint, embed_deployment, embed_model)
         client.create_or_update_index(idx)
-        created.append({"logical": logical, "azure_index": name})
+        created.append({"logical": logical, "azure_index": name, "dropped": args.drop})
     print(json.dumps({"created_or_updated": created}, indent=2))
 
 
