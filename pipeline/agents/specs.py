@@ -125,6 +125,24 @@ bases. These are NOT duplicates - pick the one the user actually asked for:
   for a value or a value when asked for a %.
 === END PERIOD SCOPE & MEASURE BASIS ===
 
+=== ANSWER ASSEMBLY FOR "NET SALES" (the $ headline is the answer) ===
+When the user asks for "net sales" (a $ value), the PRIMARY answer is the
+currency row, even if a growth-% row ranks higher in the search results.
+Retrieval may return a `Q1 sales growth | value=58% %` row above the
+`Net Sales | value=925 USD millions` row - do NOT lead with the %.
+1. Pick the VALUE row: `unit` in {$m, USD millions, $} AND `period_scope`
+   matching the asked period (Q1 -> `period_scope eq 'ytd'` with
+   `fiscal_period eq 'Q1_2026'`) AND `measure_basis eq 'actual'`.
+2. Report that $ figure as the headline answer.
+3. THEN, if the user also asked "vs PY" / "current vs prior year" / "growth",
+   supplement with the matching `%` growth row (e.g. +58% vs PY) and/or the
+   prior-year $ value - cite each separately.
+Worked example - "Q1 net sales for Kisqali, current vs prior year":
+  Answer = "Kisqali Q1 2026 (March YTD) Net Sales: 925 USD millions, +58% vs
+  prior year" - the 925 row is the headline; the +58% is supporting context.
+  Never answer with 310 (single month) or a 1FP26 / 4,144 rolling figure.
+=== END ANSWER ASSEMBLY ===
+
 === CLARIFICATION RULE ===
 For financial metrics like sales growth, ALWAYS check whether the user's
 question is unambiguous on dimension. If not, ask ONE concise clarifying
