@@ -179,28 +179,94 @@ def _comparison_to_basis(text: str) -> list[str]:
 # must NOT land here - they belong in `period_label`.
 _NORMALIZED_FP_RE = re.compile(r"^(Q[1-4]_\d{4}|H[12]_\d{4}|FY_\d{4}|\d{4}-\d{2}|\d{4}-W\d{2})$")
 
+_MONTH_NUM = {
+    "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+    "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6,
+    "jul": 7, "july": 7, "aug": 8, "august": 8, "sep": 9, "sept": 9, "september": 9,
+    "oct": 10, "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
+}
+
+# A cumulative ("YTD") period ending in a given month maps to a calendar period.
+# March-YTD == Q1, June-YTD == H1, Sept-YTD == 9 months (Q3 cumulative),
+# Dec-YTD == full year. We only synthesise quarter/half/FY tokens here.
+_YTD_MONTH_TO_PERIOD = {3: ("Q1", "quarter"), 6: ("H1", "half"),
+                        9: ("Q3", "quarter"), 12: ("FY", "full_year")}
+
 
 def _looks_like_fiscal_period(p: str) -> bool:
     return bool(_NORMALIZED_FP_RE.match((p or "").strip()))
 
 
-def period_search_aliases(fiscal_period: str, period_label: str) -> str:
+def _year_from(*candidates: str) -> str:
+    for c in candidates:
+        m = re.search(r"(20\d{2})", c or "")
+        if m:
+            return m.group(1)
+    return ""
+
+
+def normalize_ytd_label(label: str, year: str) -> tuple[str, str, str]:
+    """Map a freeform cumulative label like "March YTD" / "Mar YTD" to a
+    normalized (fiscal_period, scope, quarter_token).
+
+    Returns ("", "", "") when the label is not a recognisable month-YTD form.
+    e.g. ("March YTD", "2026") -> ("Q1_2026", "ytd", "Q1").
+    """
+    t = (label or "").lower()
+    if "ytd" not in t and "year to date" not in t and "year-to-date" not in t:
+        return "", "", ""
+    month_no = None
+    for name, num in _MONTH_NUM.items():
+        if re.search(rf"\b{name}\b", t):
+            month_no = num
+            break
+    if month_no is None:
+        return "", "", ""
+    period = _YTD_MONTH_TO_PERIOD.get(month_no)
+    if not period or not year:
+        return "", "", ""
+    token, scope = period  # e.g. ("Q1", "quarter")
+    fp = f"{token}_{year}"
+    return fp, "ytd", token
+
+
+def period_search_aliases(fiscal_period: str, period_label: str,
+                          period_end_date: str = "") -> str:
     """Searchable period aliases so hybrid/BM25 retrieval matches quarter-style
     queries (e.g. "Q1 net sales") even when the printed label is "March YTD".
     A March-YTD page in a monthly deck *is* Q1, but that word never appears in
-    the source text, so we synthesise it from the normalized fiscal_period.
+    the source text, so we synthesise it from the normalized period.
     """
     fp = (fiscal_period or "").strip()
     out: list[str] = []
+
+    def add_quarter(q: str, yr: str) -> None:
+        if yr:
+            out.extend([f"Q{q} {yr}", f"Q{q}_{yr}", f"Q{q}'{yr[2:]}", f"{yr} Q{q}"])
+        else:
+            out.append(f"Q{q}")
+
     mq = re.match(r"^Q([1-4])_(\d{4})$", fp)
     if mq:
-        q, yr = mq.group(1), mq.group(2)
-        out += [f"Q{q} {yr}", f"Q{q}_{yr}", f"Q{q}'{yr[2:]}", f"{yr} Q{q}"]
+        add_quarter(mq.group(1), mq.group(2))
     elif re.match(r"^FY_\d{4}$", fp):
         yr = fp.split("_")[1]
         out += [fp, f"FY {yr}", f"full year {yr}"]
     elif fp and fp.upper() != "UNKNOWN":
         out.append(fp)
+
+    # Synthesise quarter/half/FY tokens from a "March YTD"-style label too, so a
+    # chunk whose fiscal_period is still the freeform string is reachable by a
+    # "Q1" query.
+    yr = _year_from(fp, period_label, period_end_date)
+    norm_fp, _scope, token = normalize_ytd_label(period_label or fp, yr)
+    if token:
+        mq2 = re.match(r"^Q([1-4])$", token)
+        if mq2:
+            add_quarter(mq2.group(1), yr)
+        else:
+            out.append(f"{token} {yr}".strip())
+
     if period_label:
         out.append(period_label)
     # dedupe preserving order
@@ -288,6 +354,21 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
     period_end_date = (page_obj.get("period_end_date") or "").strip() \
         or derive_period_end_date(fiscal_period, doc)
 
+    # Normalize a freeform cumulative label ("March YTD") into a calendar period
+    # token ("Q1_2026") for the *filterable* fiscal_period, while preserving the
+    # printed label in period_label. Without this, a query like
+    # `fiscal_period eq 'Q1_2026'` (and the agent's own quarter reasoning) can
+    # never reach the March-YTD == Q1 figures.
+    page_label = page_obj.get("period_label", "") or ""
+    if not _looks_like_fiscal_period(fiscal_period):
+        yr = _year_from(fiscal_period, page_label, period_end_date,
+                        doc.get("fiscal_period", ""))
+        norm_fp, norm_scope, _token = normalize_ytd_label(fiscal_period or page_label, yr)
+        if norm_fp:
+            if not page_label:
+                page_label = fiscal_period  # keep the human label we are replacing
+            fiscal_period = norm_fp
+
     return {
         "doc_id": doc["doc_id"],
         "doc_type": doc["doc_type"],
@@ -301,7 +382,7 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         "page_kind": page_obj.get("page_kind", ""),
         # Period / basis disambiguation (page-level defaults; KPI rows specialise)
         "period_scope": page_obj.get("period_scope") or "unknown",
-        "period_label": page_obj.get("period_label", "") or "",
+        "period_label": page_label,
         "period_end_date": period_end_date,
         "measure_basis": page_obj.get("measure_basis") or "unknown",
         "comparison_basis": page_obj.get("comparison_basis") or [],
@@ -410,7 +491,9 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
     for kp in page_obj.get("kpis", []) or []:
         kmeta = kpi_meta_override(meta, kp)
         text = render_kpi(kp)
-        aliases = period_search_aliases(kmeta.get("fiscal_period", ""), kmeta.get("period_label", ""))
+        aliases = period_search_aliases(kmeta.get("fiscal_period", ""),
+                                        kmeta.get("period_label", ""),
+                                        kmeta.get("period_end_date", ""))
         if aliases:
             text = f"[{aliases}] {text}"
         yield primary, emit_text(kmeta, "kpi_row", text, section=kp.get("name", ""))
