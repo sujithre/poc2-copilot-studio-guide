@@ -174,6 +174,39 @@ def _comparison_to_basis(text: str) -> list[str]:
     return [x for x in out if not (x in seen or seen.add(x))]
 
 
+# Normalized fiscal-period tokens we are willing to copy onto a chunk's
+# `fiscal_period` (a filterable field). Freeform labels such as "March YTD"
+# must NOT land here - they belong in `period_label`.
+_NORMALIZED_FP_RE = re.compile(r"^(Q[1-4]_\d{4}|H[12]_\d{4}|FY_\d{4}|\d{4}-\d{2}|\d{4}-W\d{2})$")
+
+
+def _looks_like_fiscal_period(p: str) -> bool:
+    return bool(_NORMALIZED_FP_RE.match((p or "").strip()))
+
+
+def period_search_aliases(fiscal_period: str, period_label: str) -> str:
+    """Searchable period aliases so hybrid/BM25 retrieval matches quarter-style
+    queries (e.g. "Q1 net sales") even when the printed label is "March YTD".
+    A March-YTD page in a monthly deck *is* Q1, but that word never appears in
+    the source text, so we synthesise it from the normalized fiscal_period.
+    """
+    fp = (fiscal_period or "").strip()
+    out: list[str] = []
+    mq = re.match(r"^Q([1-4])_(\d{4})$", fp)
+    if mq:
+        q, yr = mq.group(1), mq.group(2)
+        out += [f"Q{q} {yr}", f"Q{q}_{yr}", f"Q{q}'{yr[2:]}", f"{yr} Q{q}"]
+    elif re.match(r"^FY_\d{4}$", fp):
+        yr = fp.split("_")[1]
+        out += [fp, f"FY {yr}", f"full year {yr}"]
+    elif fp and fp.upper() != "UNKNOWN":
+        out.append(fp)
+    if period_label:
+        out.append(period_label)
+    # dedupe preserving order
+    return " ".join(dict.fromkeys(out))
+
+
 def kpi_meta_override(meta: dict, kp: dict) -> dict:
     """Return a copy of the page meta with period/basis fields specialised to a
     single KPI cell. This is what makes the LO grid usable: each emitted KPI
@@ -182,7 +215,17 @@ def kpi_meta_override(meta: dict, kp: dict) -> dict:
     """
     m = dict(meta)
     if kp.get("period"):
-        m["fiscal_period"] = kp["period"]
+        kp_period = kp["period"].strip()
+        if _looks_like_fiscal_period(kp_period):
+            # A genuinely normalized period (e.g. "FY_2026" on the LO grid):
+            # safe to specialise the filterable fiscal_period.
+            m["fiscal_period"] = kp_period
+        elif kp_period:
+            # Freeform label such as "March YTD". Keep the page-level normalized
+            # fiscal_period (e.g. Q1_2026) so the chunk stays linked to the
+            # quarter and survives `fiscal_period eq 'Q1_2026'` filters; expose
+            # the human label via period_label.
+            m["period_label"] = kp_period
     ps = kp.get("period_scope")
     if ps and ps != "unknown":
         m["period_scope"] = ps
@@ -365,8 +408,12 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
 
     # KPI rows (one chunk per KPI for fine-grained retrieval / agent grounding)
     for kp in page_obj.get("kpis", []) or []:
+        kmeta = kpi_meta_override(meta, kp)
         text = render_kpi(kp)
-        yield primary, emit_text(kpi_meta_override(meta, kp), "kpi_row", text, section=kp.get("name", ""))
+        aliases = period_search_aliases(kmeta.get("fiscal_period", ""), kmeta.get("period_label", ""))
+        if aliases:
+            text = f"[{aliases}] {text}"
+        yield primary, emit_text(kmeta, "kpi_row", text, section=kp.get("name", ""))
 
 
 def render_figure(fig: dict) -> str:
