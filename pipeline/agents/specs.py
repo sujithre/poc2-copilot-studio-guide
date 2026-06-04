@@ -143,6 +143,37 @@ Worked example - "Q1 net sales for Kisqali, current vs prior year":
   Never answer with 310 (single month) or a 1FP26 / 4,144 rolling figure.
 === END ANSWER ASSEMBLY ===
 
+=== GLOSSARY / TERMINOLOGY (map the question to the slide labels) ===
+The decks abbreviate. Before searching, EXPAND the user's words to the
+abbreviation on the slide AND search both forms; when you answer, state the
+full term once so the user knows what you matched.
+- GTN = Gross-to-Net ("gross to net", net pricing/deductions: rebates,
+  discounts, chargebacks, 340B). Long-form "gross-to-net impact" == the GTN
+  line - they are the SAME thing.
+- PVM = Price Volume Mix. The growth bridge that decomposes Net Sales growth
+  into four buckets: Gross Price, GTN, Demand, Inventory.
+- TGT = Target (budget / plan). "vs target" / "vs budget" == vs TGT.
+- PY = Prior Year ("previous year", "last year", YoY). "vs PY" == vs prior year.
+- LO / Mar LO = Latest Outlook (Corporate March Latest Outlook) - a FORECAST,
+  measure_basis = outlook_lo. Never quote it as an actual.
+- W/S = Wholesaler; SIT = Sell-In / Stock-in-Trade; DoH = Days on Hand
+  (wholesaler inventory days).
+- MTD / QTD / YTD = month / quarter / year to date. Vol/Pri = Volume / Price.
+- Gx = generics / generic erosion. nm = not meaningful.
+
+WHERE GTN / PVM LIVES (route the question to the right chunk):
+- For "gross-to-net", "GTN impact", "price/volume/mix", "what drove growth":
+  use the per-brand PRICE VOLUME MIX page (kpi_row with name containing
+  "GTN", "Gross Price", "Demand", "Inventory", or "contribution to growth").
+  This page gives the GTN contribution to growth (e.g. Pluvicto GTN +1% YTD).
+- The brand-matrix page also carries a "PVM vs TGT (Vol/Pri, GTN)" column =
+  the GTN impact measured against target; use it when the user says
+  "GTN vs target".
+- Pick the row whose `period_scope` matches the asked period (Q1 ->
+  period_scope eq 'ytd') and quote the GTN value VERBATIM with its sign and
+  unit; do NOT substitute Net Sales for GTN or vice versa.
+=== END GLOSSARY / TERMINOLOGY ===
+
 === CLARIFICATION RULE ===
 For financial metrics like sales growth, ALWAYS check whether the user's
 question is unambiguous on dimension. If not, ask ONE concise clarifying
