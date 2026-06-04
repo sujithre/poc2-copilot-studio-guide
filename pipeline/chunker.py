@@ -374,6 +374,43 @@ def kpi_term_aliases(kp: dict) -> str:
     return " ".join(dict.fromkeys(out))
 
 
+def narrow_meta_brand(meta: dict, raw_brand) -> dict:
+    """If ``raw_brand`` matches exactly ONE brand already listed on the page,
+    return a meta copy whose filterable ``brand``/``brand_mentions`` are pinned
+    to just that single brand.
+
+    On dense multi-brand matrix slides (e.g. the page-13 brand table) every
+    per-cell row otherwise inherits the page's full brand list, so an unrelated
+    brand's cell (say another brand's -9 GTN variance) stays retrievable under
+    ANY brand filter and gets mis-attributed. Aggregate / multi-brand cells
+    (US, Total Priority, Mature, Gx, "Zolgensma / Itvisma") don't resolve to a
+    single page brand and keep the page-level list unchanged.
+    """
+    if isinstance(raw_brand, (list, tuple)):
+        raw_brand = raw_brand[0] if len(raw_brand) == 1 else ""
+    raw_brand = (raw_brand or "").strip()
+    if not raw_brand:
+        return meta
+    page_brands = meta.get("brand") or []
+    match = next((b for b in page_brands if b.lower() == raw_brand.lower()), None)
+    if not match:
+        return meta
+    m = dict(meta)
+    m["brand"] = [match]
+    m["brand_mentions"] = [match]
+    return m
+
+
+def _row_brand(cols: list, row: list) -> str:
+    """Best-effort single brand for a table row: a cell under a Brand/Product/
+    Name column, else the first cell. Resolution to an actual brand is left to
+    ``narrow_meta_brand`` (which only narrows on an exact page-brand match)."""
+    for c, v in zip(cols, row):
+        if str(c).strip().lower() in ("brand", "product", "name"):
+            return str(v or "").strip()
+    return str(row[0] or "").strip() if row else ""
+
+
 def kpi_meta_override(meta: dict, kp: dict) -> dict:
     """Return a copy of the page meta with period/basis fields specialised to a
     single KPI cell. This is what makes the LO grid usable: each emitted KPI
@@ -405,22 +442,10 @@ def kpi_meta_override(meta: dict, kp: dict) -> dict:
             # to the quarter and survives `fiscal_period eq 'Q1_2026'` filters;
             # expose the human label via period_label.
             m["period_label"] = kp_period
-    # Brand: a per-cell KPI on a multi-brand matrix (e.g. the page-13 brand
-    # table) belongs to exactly ONE brand. The page-level brand list contains
-    # every brand on the slide, so without narrowing, an unrelated cell (say
-    # another brand's -9 GTN variance) stays retrievable under ANY brand filter
-    # and can be mis-attributed. When the KPI names its own brand, pin the
-    # chunk's brand to just that one so brand filters/ranking are correct.
-    kp_brand = kp.get("brand")
-    if isinstance(kp_brand, (list, tuple)):
-        kp_brand = kp_brand[0] if kp_brand else ""
-    kp_brand = (kp_brand or "").strip()
-    if kp_brand:
-        page_brands = m.get("brand") or []
-        match = next((b for b in page_brands if b.lower() == kp_brand.lower()), None)
-        narrowed = match or kp_brand
-        m["brand"] = [narrowed]
-        m["brand_mentions"] = [narrowed]
+    # Brand: a per-cell KPI on a multi-brand matrix belongs to exactly ONE
+    # brand. Narrow the chunk's filterable brand to that one (when it names a
+    # brand present on the page) so brand filters / ranking stay correct.
+    m = narrow_meta_brand(m, kp.get("brand"))
 
     ps = kp.get("period_scope")
     if ps and ps != "unknown":
@@ -609,7 +634,8 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
                 continue
             kvs = ", ".join(f"{c}={v}" for c, v in zip(cols, r))
             row_text = (f"{t.get('caption','')} - {kvs}").strip(" -")
-            yield primary, emit_text(meta, "table_row", row_text, section=t.get("caption", ""))
+            rmeta = narrow_meta_brand(meta, _row_brand(cols, r))
+            yield primary, emit_text(rmeta, "table_row", row_text, section=t.get("caption", ""))
 
     # Figures -> chart / image / infographic / figure depending on kind
     for fig in page_obj.get("figures", []):
@@ -793,7 +819,8 @@ def chunks_from_ir_page(doc: dict, page_obj: dict, brands: BrandRegistry,
                 continue
             kvs = ", ".join(f"{c}={v}" for c, v in zip(cols, r))
             row_text = (f"{t.get('caption','')} - {kvs}").strip(" -")
-            yield primary, emit_text(meta, "table_row", row_text, section=t.get("caption", ""))
+            rmeta = narrow_meta_brand(meta, _row_brand(cols, r))
+            yield primary, emit_text(rmeta, "table_row", row_text, section=t.get("caption", ""))
 
     for fig in page_obj.get("figures", []):
         ct = figure_chunk_type(fig.get("kind", "other"))
