@@ -375,30 +375,40 @@ def kpi_term_aliases(kp: dict) -> str:
 
 
 def narrow_meta_brand(meta: dict, raw_brand) -> dict:
-    """If ``raw_brand`` matches exactly ONE brand already listed on the page,
-    return a meta copy whose filterable ``brand``/``brand_mentions`` are pinned
-    to just that single brand.
+    """Specialise a chunk's filterable ``brand`` to the brand the row actually
+    reports.
 
-    On dense multi-brand matrix slides (e.g. the page-13 brand table) every
-    per-cell row otherwise inherits the page's full brand list, so an unrelated
-    brand's cell (say another brand's -9 GTN variance) stays retrievable under
-    ANY brand filter and gets mis-attributed. Aggregate / multi-brand cells
-    (US, Total Priority, Mature, Gx, "Zolgensma / Itvisma") don't resolve to a
-    single page brand and keep the page-level list unchanged.
+    Three cases on a page whose ``brand`` list has MORE THAN ONE brand:
+    1. ``raw_brand`` matches exactly one page brand -> pin ``brand`` /
+       ``brand_mentions`` to just that brand (e.g. the page-13 ``Brand=KISQALI``
+       row).
+    2. ``raw_brand`` is empty or does not resolve to a single page brand -> the
+       row is an aggregate / total (US, Total Priority, Mature, Gx, "% of Net
+       Sales", company-wide Net Sales) so it is NOT attributable to any one
+       brand: clear the filterable ``brand`` so a brand filter excludes it.
+       ``brand_mentions`` is left intact for recall.
+
+    On a single-brand page (<=1 brand) nothing is cleared: a total there IS that
+    brand's total.
     """
+    page_brands = meta.get("brand") or []
     if isinstance(raw_brand, (list, tuple)):
         raw_brand = raw_brand[0] if len(raw_brand) == 1 else ""
     raw_brand = (raw_brand or "").strip()
-    if not raw_brand:
-        return meta
-    page_brands = meta.get("brand") or []
-    match = next((b for b in page_brands if b.lower() == raw_brand.lower()), None)
-    if not match:
-        return meta
-    m = dict(meta)
-    m["brand"] = [match]
-    m["brand_mentions"] = [match]
-    return m
+    match = (next((b for b in page_brands if b.lower() == raw_brand.lower()), None)
+             if raw_brand else None)
+    if match:
+        m = dict(meta)
+        m["brand"] = [match]
+        m["brand_mentions"] = [match]
+        return m
+    if len(page_brands) > 1:
+        # Aggregate / unattributable row on a multi-brand page: do not let it
+        # inherit individual brand names as its authoritative attribution.
+        m = dict(meta)
+        m["brand"] = []
+        return m
+    return meta
 
 
 def _row_brand(cols: list, row: list) -> str:
