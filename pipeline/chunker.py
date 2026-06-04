@@ -411,6 +411,21 @@ def narrow_meta_brand(meta: dict, raw_brand) -> dict:
     return meta
 
 
+def _brand_cleared(page_meta: dict, row_meta: dict) -> bool:
+    """True when ``narrow_meta_brand`` emptied an ambiguous per-cell row on a
+    multi-brand page.
+
+    A single-value KPI cell from a brand-matrix page that loses its brand (e.g.
+    a per-brand ``PVM vs TGT GTN = -9`` cell whose own brand was not captured)
+    is NOT safely attributable: under brandless / unfiltered retrieval it would
+    match ANY brand's GTN question and be mis-cited (the classic page-13 ``-9``
+    bleeding into a Pluvicto answer). Callers skip emitting such a fragment as a
+    standalone ``kpi_row``; the same number stays available, correctly branded,
+    in the page's ``table_row`` (which carries the ``Brand=...`` column).
+    """
+    return len(page_meta.get("brand") or []) > 1 and not (row_meta.get("brand") or [])
+
+
 def _row_brand(cols: list, row: list) -> str:
     """Best-effort single brand for a table row: a cell under a Brand/Product/
     Name column, else the first cell. Resolution to an actual brand is left to
@@ -656,6 +671,11 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
     # KPI rows (one chunk per KPI for fine-grained retrieval / agent grounding)
     for kp in page_obj.get("kpis", []) or []:
         kmeta = kpi_meta_override(meta, kp)
+        if _brand_cleared(meta, kmeta):
+            # Ambiguous per-brand matrix cell that lost its brand: skip so it
+            # cannot be mis-attributed under unfiltered retrieval. The branded
+            # table_row for this page still carries the number.
+            continue
         text = render_kpi(kp)
         aliases = kpi_period_aliases(kp, kmeta.get("fiscal_period", ""),
                                      kmeta.get("period_label", ""),
@@ -837,7 +857,10 @@ def chunks_from_ir_page(doc: dict, page_obj: dict, brands: BrandRegistry,
         yield primary, emit_text(meta, ct, render_figure(fig), section=fig.get("caption", ""))
 
     for kp in page_obj.get("kpis", []) or []:
-        yield primary, emit_text(kpi_meta_override(meta, kp), "kpi_row", render_kpi(kp), section=kp.get("name", ""))
+        kmeta = kpi_meta_override(meta, kp)
+        if _brand_cleared(meta, kmeta):
+            continue
+        yield primary, emit_text(kmeta, "kpi_row", render_kpi(kp), section=kp.get("name", ""))
 
 
 # ---------------------------------------------------------------------------
