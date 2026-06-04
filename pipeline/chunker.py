@@ -329,6 +329,51 @@ def kpi_period_aliases(kp: dict, fallback_fp: str = "", period_label: str = "",
     return " ".join(dict.fromkeys(o for o in out if o))
 
 
+# Business-language <-> slide-abbreviation synonyms. Each entry maps a set of
+# trigger substrings (as they appear in a KPI's name/comparison/basis/unit) to
+# the extra search terms to inject so a user typing the long form (or the short
+# form) still retrieves the row. Keep this small and high-signal - it only
+# needs to bridge the words users actually type to the words on the slide.
+_TERM_SYNONYMS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (("gtn", "gross-to-net", "gross to net"),
+     ("GTN", "gross-to-net", "gross to net", "net pricing")),
+    (("vs tgt", "vs. tgt", "target", "budget", "plan"),
+     ("vs target", "vs TGT", "target", "budget", "actual vs target")),
+    (("vs py", "vs. py", "prior year", "previous year", "yoy", "year-over-year"),
+     ("vs prior year", "vs PY", "prior year", "previous year", "YoY")),
+    (("price volume mix", "pvm", "vol/pri"),
+     ("price volume mix", "PVM", "price volume mix bridge")),
+    (("w/s sit", "wholesaler", "doh", "days on hand", "sit days"),
+     ("wholesaler inventory", "W/S SIT", "days on hand", "DoH")),
+)
+
+
+def kpi_term_aliases(kp: dict) -> str:
+    """Synonym aliases so business-language queries reach the right KPI row.
+
+    A user asking "gross-to-net impact" or "actual net sales vs target" should
+    retrieve the GTN / vs-TGT rows even though the slide only prints "GTN" /
+    "vs TGT". We scan the KPI's descriptive fields and inject both forms.
+    """
+    haystack = " ".join(str(kp.get(k, "")) for k in (
+        "name", "comparison", "comparison_basis", "basis", "measure_basis",
+        "unit", "source_quote",
+    )).lower()
+    out: list[str] = []
+    for triggers, terms in _TERM_SYNONYMS:
+        if any(t in haystack for t in triggers):
+            out.extend(terms)
+    # measure_basis=actual -> let "actual"/"reported" queries match.
+    mb = (kp.get("measure_basis") or "").lower()
+    if mb == "actual":
+        out.extend(("actual", "actuals", "reported"))
+    elif mb in ("outlook_lo", "outlook"):
+        out.extend(("Latest Outlook", "outlook", "forecast"))
+    elif mb == "target":
+        out.extend(("target", "budget", "plan"))
+    return " ".join(dict.fromkeys(out))
+
+
 def kpi_meta_override(meta: dict, kp: dict) -> dict:
     """Return a copy of the page meta with period/basis fields specialised to a
     single KPI cell. This is what makes the LO grid usable: each emitted KPI
@@ -562,8 +607,10 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
         aliases = kpi_period_aliases(kp, kmeta.get("fiscal_period", ""),
                                      kmeta.get("period_label", ""),
                                      kmeta.get("period_end_date", ""))
-        if aliases:
-            text = f"[{aliases}] {text}"
+        term_aliases = kpi_term_aliases(kp)
+        combined = " ".join(a for a in (aliases, term_aliases) if a)
+        if combined:
+            text = f"[{combined}] {text}"
         yield primary, emit_text(kmeta, "kpi_row", text, section=kp.get("name", ""))
 
 
