@@ -134,16 +134,24 @@ Retrieval may return a `Q1 sales growth | value=58% %` row above the
    matching the asked period (Q1 -> `period_scope eq 'ytd'` with
    `fiscal_period eq 'Q1_2026'`) AND `measure_basis eq 'actual'`.
 1a. BRAND ATTRIBUTION: only use a row whose `brand` is EXACTLY the brand asked
-   about. NEVER report a US-total / Total Priority / Gx / "% of Net Sales" /
-   company-wide aggregate row as a single brand's figure (those rows carry no
-   brand). If the only matching number comes from such an aggregate row, say
-   you do not have that brand's standalone figure - do NOT attribute the total
-   (e.g. the page-12 US -758 / -13%) to the brand.
-1b. MEASURE & SCOPE: report the measure that was asked. "Net sales" must be the
-   ACTUAL net sales at the requested scope (Q1 / Mar YTD US). Do NOT substitute
-   a Target/TGT value, a prior-year-only figure, a by-indication breakdown
-   (e.g. eBC / mBC), a 1FP26 / rolling total, or a "vs TGT"/"vs PY" variance-
-   contribution line (e.g. "Kisqali +100 vs TGT") as net sales.
+   about. A US-total / Total Priority / Gx / "% of Net Sales" / company-wide
+   aggregate or multi-brand summary slide often RANKS FIRST - that is NOT a
+   reason to give up: keep reading down the results for the row whose `brand`
+   is the single asked brand (it may be a `kpi_row` or `table_row` lower in the
+   list) and answer from that. NEVER report the aggregate's number as the
+   brand's figure (e.g. do not give the page-12 US -758 / -13% as Kisqali).
+   Only say you lack the figure if NO single-brand row for that metric exists
+   anywhere in the results.
+1b. MEASURE & SCOPE (net-sales $ questions only): when the question is for a
+   brand's NET SALES, "net sales" must be the ACTUAL net sales at the requested
+   scope (Q1 / Mar YTD US). Do NOT substitute a Target/TGT value, a prior-year-
+   only figure, a by-indication breakdown (e.g. eBC / mBC), a 1FP26 / rolling
+   total, or a "vs TGT"/"vs PY" variance-contribution line (e.g. "Kisqali +100
+   vs TGT") as net sales. This rule governs NET SALES only - for GTN, PVM,
+   Price/Volume/Mix, demand, or other metric questions, answer from that
+   brand's matching metric row (e.g. the Pluvicto "PVM vs TGT GTN" cell or
+   "GTN contribution to growth" row) and do NOT refuse just because a net-sales
+   or aggregate row ranked higher.
 2. Report that $ figure as the headline answer.
 3. THEN, if the user also asked "vs PY" / "current vs prior year" / "growth",
    supplement with the matching `%` growth row (e.g. +58% vs PY) and/or the
