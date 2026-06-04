@@ -426,6 +426,24 @@ def _brand_cleared(page_meta: dict, row_meta: dict) -> bool:
     return len(page_meta.get("brand") or []) > 1 and not (row_meta.get("brand") or [])
 
 
+def _prefix_kpi_brand(row_meta: dict, text: str) -> str:
+    """Lead a single-brand KPI chunk with its brand name so unfiltered semantic
+    retrieval can disambiguate otherwise near-identical per-brand matrix rows.
+
+    On a brand matrix (e.g. the page-13 ``PVM vs TGT GTN`` column) every brand's
+    KPI row carries the SAME keyword-stuffed alias block and prints its brand
+    only once, late, as ``brand=X``. That single mention is too weak for the
+    reranker, so a ``Pluvicto ... GTN vs TGT`` query can miss Pluvicto's own row
+    entirely and the LLM falls back to a different metric/scope (e.g. the p42
+    ``GTN contribution to growth = 1%`` vs-PY figure). Leading with the brand
+    name makes the row's owner salient. Only applied when the chunk resolves to
+    exactly one brand (aggregates were already cleared/skipped upstream)."""
+    bl = row_meta.get("brand") or []
+    if len(bl) == 1 and bl[0]:
+        return f"{bl[0]} {text}"
+    return text
+
+
 def _row_brand(cols: list, row: list) -> str:
     """Best-effort single brand for a table row: a cell under a Brand/Product/
     Name column, else the first cell. Resolution to an actual brand is left to
@@ -684,6 +702,7 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
         combined = " ".join(a for a in (aliases, term_aliases) if a)
         if combined:
             text = f"[{combined}] {text}"
+        text = _prefix_kpi_brand(kmeta, text)
         yield primary, emit_text(kmeta, "kpi_row", text, section=kp.get("name", ""))
 
 
@@ -860,7 +879,7 @@ def chunks_from_ir_page(doc: dict, page_obj: dict, brands: BrandRegistry,
         kmeta = kpi_meta_override(meta, kp)
         if _brand_cleared(meta, kmeta):
             continue
-        yield primary, emit_text(kmeta, "kpi_row", render_kpi(kp), section=kp.get("name", ""))
+        yield primary, emit_text(kmeta, "kpi_row", _prefix_kpi_brand(kmeta, render_kpi(kp)), section=kp.get("name", ""))
 
 
 # ---------------------------------------------------------------------------
