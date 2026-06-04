@@ -405,6 +405,23 @@ def kpi_meta_override(meta: dict, kp: dict) -> dict:
             # to the quarter and survives `fiscal_period eq 'Q1_2026'` filters;
             # expose the human label via period_label.
             m["period_label"] = kp_period
+    # Brand: a per-cell KPI on a multi-brand matrix (e.g. the page-13 brand
+    # table) belongs to exactly ONE brand. The page-level brand list contains
+    # every brand on the slide, so without narrowing, an unrelated cell (say
+    # another brand's -9 GTN variance) stays retrievable under ANY brand filter
+    # and can be mis-attributed. When the KPI names its own brand, pin the
+    # chunk's brand to just that one so brand filters/ranking are correct.
+    kp_brand = kp.get("brand")
+    if isinstance(kp_brand, (list, tuple)):
+        kp_brand = kp_brand[0] if kp_brand else ""
+    kp_brand = (kp_brand or "").strip()
+    if kp_brand:
+        page_brands = m.get("brand") or []
+        match = next((b for b in page_brands if b.lower() == kp_brand.lower()), None)
+        narrowed = match or kp_brand
+        m["brand"] = [narrowed]
+        m["brand_mentions"] = [narrowed]
+
     ps = kp.get("period_scope")
     if ps and ps != "unknown":
         m["period_scope"] = ps
