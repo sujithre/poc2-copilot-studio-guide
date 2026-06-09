@@ -22,6 +22,7 @@ import json
 import re
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import urlsplit, urlunsplit
 
 from common import (
     env,
@@ -93,6 +94,24 @@ def _looks_brand_like(heading: str) -> bool:
 def slugify(s: str) -> str:
     s = re.sub(r"[^a-zA-Z0-9_-]+", "-", s.strip().lower())
     return s.strip("-") or "untitled"
+
+
+# SharePoint "copy link" / address-bar URLs carry transient, session-bound query
+# tokens (xsdata / sdata / ovuser / nav / csf / web / e). Those tokens are tied to
+# the author's signed-in browser session: the citation hyperlink resolves in the
+# Copilot Studio test pane (same session) but 404s for everyone else in Teams.
+# Strip the query/fragment so we keep only the canonical, durable document path.
+_TRANSIENT_QS_TOKENS = ("xsdata", "sdata", "ovuser", "nav=", "csf=", "web=", "e=")
+
+
+def clean_doc_url(raw: str) -> str:
+    if not raw:
+        return raw
+    parts = urlsplit(raw)
+    if parts.query and any(tok.split("=")[0] in parts.query for tok in _TRANSIENT_QS_TOKENS):
+        parts = parts._replace(query="", fragment="")
+        return urlunsplit(parts)
+    return raw
 
 
 def stable_id(*parts: str) -> str:
@@ -595,10 +614,10 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         "is_official_disclosure": bool(doc.get("is_official_disclosure", False)),
         "tags": doc.get("tags", []),
         "source_uri": doc["source"],
-        "url": (doc.get("sharepoint_url") or doc["source"]) + (
+        "url": clean_doc_url(doc.get("sharepoint_url") or doc["source"]) + (
             f"#page={page_obj.get('page')}" if page_obj.get("page") else ""
         ),
-        "filepath": doc.get("sharepoint_url") or doc["source"],
+        "filepath": clean_doc_url(doc.get("sharepoint_url") or doc["source"]),
         "extractor_version": EXTRACTOR_VERSION,
         "prompt_version": env("VISION_PROMPT_VERSION", "v1"),
     }
