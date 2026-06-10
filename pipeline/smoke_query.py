@@ -72,7 +72,7 @@ def main() -> int:
         select=[
             "id", "doc_id", "page", "chunk_type", "fiscal_period", "period_kind",
             "page_kind", "title", "brand", "brand_mentions", "therapeutic_area", "part_id",
-            "is_forward_looking", "source_uri", "chunk",
+            "is_forward_looking", "source_uri", "url", "chunk",
         ],
     )
     if not args.no_semantic:
@@ -110,6 +110,7 @@ def main() -> int:
             print(f"    part : {r['part_id']}")
         print(f"    {snippet}")
         print(f"    source: {r.get('source_uri')}#page={r.get('page')}")
+        print(f"    url   : {r.get('url')}")
         print()
     return 0
 
