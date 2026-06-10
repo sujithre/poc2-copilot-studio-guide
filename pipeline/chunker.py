@@ -97,8 +97,8 @@ def slugify(s: str) -> str:
 
 
 # SharePoint "copy link" / address-bar URLs carry transient, session-bound query
-# tokens (xsdata / sdata / ovuser / nav / csf / web / e). Those tokens are tied to
-# the author's signed-in browser session: the citation hyperlink resolves in the
+# tokens (xsdata / sdata / ovuser / nav / csf / e). Those tokens are tied to the
+# author's signed-in browser session: the citation hyperlink resolves in the
 # Copilot Studio test pane (same session) but 404s for everyone else in Teams.
 # On top of that, the "/:b:/r/" (or /:p:/ /:w:/ /:x:/ ...) prefix is a *sharing
 # link wrapper* that is only meaningful together with its token - stripping the
@@ -110,10 +110,33 @@ def slugify(s: str) -> str:
 # opening-office-application".) We do NOT add it for PDFs: PDFs open in the browser
 # natively, and "?web=1" routes them through SharePoint's preview viewer which
 # ignores the "#page=N" anchor - so a bare PDF path keeps the page jump working.
-_TRANSIENT_QS_TOKENS = ("xsdata", "sdata", "ovuser", "nav=", "csf=", "web=", "e=")
+#
+# EXCEPTION - WOPI / sourcedoc links: a "/_layouts/15/Doc.aspx?sourcedoc=...&file=
+# ...&action=default" URL is the DURABLE Office-viewer link Microsoft Graph returns
+# as webUrl. The sourcedoc GUID is what resolves the document, so we must keep that
+# query intact, keep the badge, and NOT add ?web=1. (Learn: WOPI Doc.aspx webUrl.)
+#
+# Transient param KEYS to drop. Matched as exact query-parameter keys (not
+# substrings) so that e.g. "e" never matches the letter e inside "sourcedoc".
+_TRANSIENT_PARAM_KEYS = {"xsdata", "sdata", "ovuser", "nav", "csf", "e"}
 # Matches the leading "/:b:/r/" style sharing-link wrapper (single letter badge,
 # optional "/r"), so it can be removed to reveal the canonical path.
 _SP_SHARE_WRAPPER = re.compile(r"^/:[a-z]:(?:/r)?/", re.IGNORECASE)
+
+
+def _strip_transient_params(query: str) -> tuple[str, bool]:
+    """Remove only transient session params by exact key, preserving the original
+    encoding of everything kept. Returns (new_query, removed_any)."""
+    if not query:
+        return query, False
+    kept, removed = [], False
+    for seg in query.split("&"):
+        key = seg.split("=", 1)[0].lower()
+        if key in _TRANSIENT_PARAM_KEYS:
+            removed = True
+            continue
+        kept.append(seg)
+    return "&".join(kept), removed
 
 
 def clean_doc_url(raw: str) -> str:
@@ -123,16 +146,20 @@ def clean_doc_url(raw: str) -> str:
     path, query, fragment = parts.path, parts.query, parts.fragment
     is_sharepoint = parts.scheme in ("http", "https") and "sharepoint.com" in parts.netloc.lower()
     is_pdf = path.lower().endswith(".pdf")
-    # 1) Drop transient session tokens (and any fragment they carried).
-    if query and any(tok.split("=")[0] in query for tok in _TRANSIENT_QS_TOKENS):
-        query = ""
+    # WOPI/sourcedoc Office-viewer link: durable, leave its query + badge intact.
+    is_wopi = path.lower().endswith("/doc.aspx") or "sourcedoc=" in query.lower()
+    # 1) Drop transient session tokens by exact param key (and the session-bound
+    #    fragment they carried). WOPI links never carry these, so they're untouched.
+    query, had_transient = _strip_transient_params(query)
+    if had_transient and not is_wopi:
         fragment = ""
-    # 2) Unwrap the "/:b:/r/" sharing-link prefix into the canonical "/..." path.
-    if _SP_SHARE_WRAPPER.match(path):
+    # 2) Unwrap the "/:b:/r/" sharing-link prefix into the canonical "/..." path -
+    #    but NOT for WOPI links, whose badge is part of the durable webUrl.
+    if not is_wopi and _SP_SHARE_WRAPPER.match(path):
         path = _SP_SHARE_WRAPPER.sub("/", path)
     # 3) For canonical SharePoint OFFICE file links, force open-in-browser (else
-    #    they download). Skip PDFs so the "#page=N" anchor keeps working.
-    if is_sharepoint and not is_pdf and not query and not _SP_SHARE_WRAPPER.match(path):
+    #    they download). Skip PDFs (keep "#page=N") and WOPI links (already viewer).
+    if is_sharepoint and not is_pdf and not is_wopi and not query and not _SP_SHARE_WRAPPER.match(path):
         query = "web=1"
     return urlunsplit(parts._replace(path=path, query=query, fragment=fragment))
 
