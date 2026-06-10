@@ -68,6 +68,7 @@ def chunk_to_doc(rec: dict, vector: list[float]) -> dict:
         "measure_basis": rec.get("measure_basis", "") or "unknown",
         "comparison_basis": rec.get("comparison_basis") or [],
         "page_role": rec.get("page_role", "") or "standard",
+        "authority_boost": int(rec.get("authority_boost") or 0),
         "has_comments": bool(rec.get("has_comments", False)),
         # chunk-level
         "chunk_type": rec.get("chunk_type", ""),
