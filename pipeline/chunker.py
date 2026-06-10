@@ -100,18 +100,29 @@ def slugify(s: str) -> str:
 # tokens (xsdata / sdata / ovuser / nav / csf / web / e). Those tokens are tied to
 # the author's signed-in browser session: the citation hyperlink resolves in the
 # Copilot Studio test pane (same session) but 404s for everyone else in Teams.
-# Strip the query/fragment so we keep only the canonical, durable document path.
+# On top of that, the "/:b:/r/" (or /:p:/ /:w:/ /:x:/ ...) prefix is a *sharing
+# link wrapper* that is only meaningful together with its token - stripping the
+# token alone still 404s. We must also unwrap it to the canonical "/sites/..."
+# server-relative path, which any user with access can open under their own auth.
 _TRANSIENT_QS_TOKENS = ("xsdata", "sdata", "ovuser", "nav=", "csf=", "web=", "e=")
+# Matches the leading "/:b:/r/" style sharing-link wrapper (single letter badge,
+# optional "/r"), so it can be removed to reveal the canonical path.
+_SP_SHARE_WRAPPER = re.compile(r"^/:[a-z]:(?:/r)?/", re.IGNORECASE)
 
 
 def clean_doc_url(raw: str) -> str:
     if not raw:
         return raw
     parts = urlsplit(raw)
-    if parts.query and any(tok.split("=")[0] in parts.query for tok in _TRANSIENT_QS_TOKENS):
-        parts = parts._replace(query="", fragment="")
-        return urlunsplit(parts)
-    return raw
+    path, query, fragment = parts.path, parts.query, parts.fragment
+    # 1) Drop transient session tokens (and any fragment they carried).
+    if query and any(tok.split("=")[0] in query for tok in _TRANSIENT_QS_TOKENS):
+        query = ""
+        fragment = ""
+    # 2) Unwrap the "/:b:/r/" sharing-link prefix into the canonical "/..." path.
+    if _SP_SHARE_WRAPPER.match(path):
+        path = _SP_SHARE_WRAPPER.sub("/", path)
+    return urlunsplit(parts._replace(path=path, query=query, fragment=fragment))
 
 
 def stable_id(*parts: str) -> str:
