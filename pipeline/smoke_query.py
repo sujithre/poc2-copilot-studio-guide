@@ -72,7 +72,7 @@ def main() -> int:
         select=[
             "id", "doc_id", "page", "chunk_type", "fiscal_period", "period_kind",
             "page_kind", "page_role", "title", "brand", "brand_mentions", "therapeutic_area", "part_id",
-            "is_forward_looking", "source_uri", "url", "chunk",
+            "is_forward_looking", "source_uri", "url", "chunk", "authority_boost",
         ],
     )
     if not args.no_semantic:
@@ -102,7 +102,7 @@ def main() -> int:
         snippet = text[:280] + ("..." if len(text) > 280 else "")
         print(f"#{i}  score={score:.3f}" + (f"  rerank={rerank:.3f}" if rerank is not None else ""))
         print(f"    [{r.get('chunk_type')}] {r.get('doc_id')} p{r.get('page')}  fp={r.get('fiscal_period')}  fwd={r.get('is_forward_looking')}")
-        print(f"    role : page_role={r.get('page_role')}  page_kind={r.get('page_kind')}")
+        print(f"    role : page_role={r.get('page_role')}  page_kind={r.get('page_kind')}  authority={r.get('authority_boost')}")
         if r.get("title"):
             print(f"    title: {r['title']}")
         if r.get("brand"):

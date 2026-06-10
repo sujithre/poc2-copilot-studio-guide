@@ -164,6 +164,18 @@ def clean_doc_url(raw: str) -> str:
     return urlunsplit(parts._replace(path=path, query=query, fragment=fragment))
 
 
+# Retrieval precedence weight by page role. brand_matrix = the authoritative
+# brand x period grids (March, March-YTD, FY Corporate LO) the finance user
+# wants to win for KPI questions; narrative = the per-brand commentary pages
+# (secondary). A magnitude scoring function in index_create.py turns this into
+# a relevance boost. Tunable - raise/lower then rebuild + smoke-test.
+_AUTHORITY_BY_ROLE = {"brand_matrix": 3, "narrative": 1}
+
+
+def _authority_boost(page_role: str) -> int:
+    return _AUTHORITY_BY_ROLE.get(page_role, 0)
+
+
 def stable_id(*parts: str) -> str:
     raw = "::".join(p for p in parts if p)
     return hashlib.sha1(raw.encode()).hexdigest()[:20]
@@ -654,6 +666,13 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         "measure_basis": page_obj.get("measure_basis") or "unknown",
         "comparison_basis": page_obj.get("comparison_basis") or [],
         "page_role": page_obj.get("page_role") or "standard",
+        # Retrieval precedence. The authoritative brand x period grids
+        # (page_role='brand_matrix') are the source-of-truth tables a finance
+        # user expects to win for KPI questions, but they otherwise rank below
+        # narrower brand-dedicated slides. A scoring profile in index_create.py
+        # uses this magnitude to float them up. Keyed on page_role (content-
+        # derived), so next month's deck inherits it with no page-number edits.
+        "authority_boost": _authority_boost(page_obj.get("page_role") or "standard"),
         "has_comments": bool(page_obj.get("has_comments", False)),
         "therapeutic_area": ta,
         "brand": canonical_brands,

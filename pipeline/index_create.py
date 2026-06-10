@@ -27,6 +27,8 @@ from azure.search.documents.indexes.models import (
     ScoringProfile,
     FreshnessScoringFunction,
     FreshnessScoringParameters,
+    MagnitudeScoringFunction,
+    MagnitudeScoringParameters,
 )
 
 from auth import credential
@@ -75,6 +77,11 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
         SimpleField(name="measure_basis",     type=SearchFieldDataType.String, filterable=True, facetable=True),
         SearchField(name="comparison_basis",  type=SearchFieldDataType.Collection(SearchFieldDataType.String), filterable=True, facetable=True),
         SimpleField(name="page_role",         type=SearchFieldDataType.String, filterable=True, facetable=True),
+        # Retrieval precedence magnitude (set by the chunker from page_role):
+        # brand_matrix grids get a higher value so the authoritative brand x
+        # period tables float above narrower brand-dedicated slides. Boosted by
+        # the 'authority' magnitude function in the scoring profile below.
+        SimpleField(name="authority_boost",   type=SearchFieldDataType.Int32, filterable=True, sortable=True),
         SimpleField(name="has_comments",      type=SearchFieldDataType.Boolean, filterable=True),
         # ---- chunk-level
         SimpleField(name="chunk_type",        type=SearchFieldDataType.String, filterable=True, facetable=True),
@@ -159,6 +166,22 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
                     field_name="recency_date",
                     boost=2.0,
                     parameters=FreshnessScoringParameters(boosting_duration="P730D"),
+                    interpolation="linear",
+                ),
+                # Precedence boost: float the authoritative brand x period grids
+                # (authority_boost=3 for brand_matrix, 1 for narrative, 0 else)
+                # above narrower brand-dedicated slides for KPI questions. Keyed
+                # on content-derived page_role, so it survives the monthly deck
+                # refresh with no page-number maintenance. Tune `boost` then
+                # rebuild + smoke-test if it over/under-fires.
+                MagnitudeScoringFunction(
+                    field_name="authority_boost",
+                    boost=4.0,
+                    parameters=MagnitudeScoringParameters(
+                        boosting_range_start=0,
+                        boosting_range_end=3,
+                        should_boost_beyond_range_by_constant=True,
+                    ),
                     interpolation="linear",
                 ),
             ],
