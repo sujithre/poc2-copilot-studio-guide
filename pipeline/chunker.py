@@ -104,10 +104,12 @@ def slugify(s: str) -> str:
 # link wrapper* that is only meaningful together with its token - stripping the
 # token alone still 404s. We must also unwrap it to the canonical "/sites/..."
 # server-relative path, which any user with access can open under their own auth.
-# Finally, a bare canonical path to an Office/PDF file makes the browser DOWNLOAD
-# the file instead of opening it in the web viewer. Per Microsoft guidance we add
-# "?web=1" to force it to open in the browser. (Learn: "files-downloaded-instead-
-# of-opening-office-application".)
+# Finally, a bare canonical path to an OFFICE file (pptx/docx/xlsx) makes the
+# browser DOWNLOAD it instead of opening in the web viewer. Per Microsoft guidance
+# we add "?web=1" to force open-in-browser. (Learn: "files-downloaded-instead-of-
+# opening-office-application".) We do NOT add it for PDFs: PDFs open in the browser
+# natively, and "?web=1" routes them through SharePoint's preview viewer which
+# ignores the "#page=N" anchor - so a bare PDF path keeps the page jump working.
 _TRANSIENT_QS_TOKENS = ("xsdata", "sdata", "ovuser", "nav=", "csf=", "web=", "e=")
 # Matches the leading "/:b:/r/" style sharing-link wrapper (single letter badge,
 # optional "/r"), so it can be removed to reveal the canonical path.
@@ -120,6 +122,7 @@ def clean_doc_url(raw: str) -> str:
     parts = urlsplit(raw)
     path, query, fragment = parts.path, parts.query, parts.fragment
     is_sharepoint = parts.scheme in ("http", "https") and "sharepoint.com" in parts.netloc.lower()
+    is_pdf = path.lower().endswith(".pdf")
     # 1) Drop transient session tokens (and any fragment they carried).
     if query and any(tok.split("=")[0] in query for tok in _TRANSIENT_QS_TOKENS):
         query = ""
@@ -127,9 +130,9 @@ def clean_doc_url(raw: str) -> str:
     # 2) Unwrap the "/:b:/r/" sharing-link prefix into the canonical "/..." path.
     if _SP_SHARE_WRAPPER.match(path):
         path = _SP_SHARE_WRAPPER.sub("/", path)
-    # 3) For canonical SharePoint file links, force open-in-browser (else Office
-    #    files download). Only when we unwrapped to a bare path with no query.
-    if is_sharepoint and not query and not _SP_SHARE_WRAPPER.match(path):
+    # 3) For canonical SharePoint OFFICE file links, force open-in-browser (else
+    #    they download). Skip PDFs so the "#page=N" anchor keeps working.
+    if is_sharepoint and not is_pdf and not query and not _SP_SHARE_WRAPPER.match(path):
         query = "web=1"
     return urlunsplit(parts._replace(path=path, query=query, fragment=fragment))
 
