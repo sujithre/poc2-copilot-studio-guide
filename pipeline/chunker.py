@@ -164,15 +164,34 @@ def clean_doc_url(raw: str) -> str:
     return urlunsplit(parts._replace(path=path, query=query, fragment=fragment))
 
 
-# Retrieval precedence weight by page role. brand_matrix = the authoritative
-# brand x period grids (March, March-YTD, FY Corporate LO) the finance user
-# wants to win for KPI questions; narrative = the per-brand commentary pages
-# (secondary). A magnitude scoring function in index_create.py turns this into
-# a relevance boost. Tunable - raise/lower then rebuild + smoke-test.
+# Retrieval precedence weight. The authoritative brand x period grids - the
+# monthly "<Month> Net Sales", the YTD "<Month> YTD Net Sales", and the
+# "FY Corporate <Month> LO by Brand" tables - are the source-of-truth matrices a
+# finance user expects to win for KPI questions, but the vision extractor only
+# tags some of them page_role='brand_matrix'. So we ALSO recognise them by their
+# section caption (durable: next month March->April keeps the pattern) and grant
+# them top authority. A magnitude scoring function in index_create.py turns this
+# into a relevance boost. Tunable - raise/lower then rebuild + smoke-test.
 _AUTHORITY_BY_ROLE = {"brand_matrix": 3, "narrative": 1}
+# Section captions of the authoritative period net-sales-by-brand grids. Matches
+# "<Month> Net Sales", "<Month> YTD Net Sales", "FY Corporate <Month> LO by Brand"
+# (any month, full or abbreviated). Deliberately strict so other tables
+# (e.g. "Net Sales & Wholesaler DoH", "Breakdown by indication") are NOT caught.
+_MONTHS = (
+    r"jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|"
+    r"aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
+)
+_GRID_SECTION_RE = re.compile(
+    rf"^(?:{_MONTHS})\s+(?:ytd\s+)?net sales$|^fy corporate\s+(?:{_MONTHS})\s+lo by brand$",
+    re.IGNORECASE,
+)
 
 
-def _authority_boost(page_role: str) -> int:
+def _authority_boost(page_role: str, section: str = "") -> int:
+    """Precedence magnitude for a chunk. The authoritative period brand grids win
+    top authority whether identified by page_role OR by their section caption."""
+    if section and _GRID_SECTION_RE.match(section.strip()):
+        return 3
     return _AUTHORITY_BY_ROLE.get(page_role, 0)
 
 
@@ -703,6 +722,9 @@ def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
         "text": text,
         **meta,
     }
+    # meta carries a page-level authority_boost (from page_role); upgrade it when
+    # THIS chunk's section caption identifies an authoritative period grid.
+    out["authority_boost"] = _authority_boost(meta.get("page_role", "") or "standard", section)
     return out
 
 
