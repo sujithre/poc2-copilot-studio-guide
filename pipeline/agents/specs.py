@@ -144,8 +144,13 @@ rows, so without the filter a month row can outrank the quarter row):
 - "full year" / "FY" / "outlook" / "Mar LO" / "Latest Outlook" / "for 2026"
       -> filter `period_scope eq 'full_year'`
 - "half year" / "H1" / "H2"            -> filter `period_scope eq 'half'`
-- No period stated -> do NOT filter; rely on the recency boost (latest period
-  wins) and state the period you used.
+- No period stated AND the question is about a specific KPI/number (net sales,
+  GTN, growth, vs TGT, etc.): do NOT guess. FIRST ask the user to clarify the
+  period with these exact choices - "Monthly", "Quarterly (YTD)", or
+  "Full year (outlook)" - then apply the matching `period_scope` filter. If a
+  "Clarify Financial Period" topic is available, use it. Only skip the question
+  when the user clearly wants the latest/overall view (e.g. "how are we doing"),
+  in which case rely on the recency boost and STATE the period you used.
 Combine with measure basis when the user implies it (e.g. reported actuals ->
 `period_scope eq 'ytd' and measure_basis eq 'actual'`). After filtering, still
 read `fiscal_period`/`period_label` on the hit you quote and state the period.
