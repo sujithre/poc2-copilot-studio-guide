@@ -1,0 +1,19 @@
+Question,Expected response,Testing method
+Pluvicto Q1 gross-to-net impact vs target,11,Keyword match
+Pluvicto March gross-to-net vs target,13,Keyword match
+Pluvicto Q1 net sales,506,Keyword match
+Pluvicto March net sales,193,Keyword match
+Kisqali Q1 net sales,925,Keyword match
+Kisqali March net sales,414,Keyword match
+Kisqali full year FY 2026 net sales,"4,198",Keyword match
+Kisqali Q1 net sales vs target,100,Keyword match
+Kesimpta Q1 net sales,724,Keyword match
+Kesimpta March net sales,281,Keyword match
+Kesimpta full year FY 2026 net sales,"3,464",Keyword match
+Cosentyx Q1 net sales,770,Keyword match
+Cosentyx full year FY 2026 net sales,"3,879",Keyword match
+Scemblix Q1 net sales,286,Keyword match
+Scemblix March net sales,132,Keyword match
+Leqvio full year FY 2026 net sales,764,Keyword match
+Total US March YTD net sales,"4,890",Keyword match
+Total US full year FY 2026 net sales,"23,395",Keyword match
