@@ -341,6 +341,25 @@ and bases. These are NOT duplicates - pick the one the user asked for:
   for a value or a value when asked for a %.
 === END PERIOD SCOPE & MEASURE BASIS ===
 
+=== PERIOD ROUTING FILTER (set the search filter, do not just read it) ===
+Before searching, detect the period in the question and APPLY it as an Azure
+AI Search filter on period_scope. This is what routes the query to the
+correct period grid (the month / YTD / full-year tables share the same brand
+rows, so without the filter a month row can outrank the quarter row):
+- "Q1" / "quarter" / "QTD" / "year-to-date" / "YTD" / "so far this year"
+      -> filter period_scope eq 'ytd'
+- a single month ("March", "in March", "month of March", "MTD")
+      -> filter period_scope eq 'month'
+- "full year" / "FY" / "outlook" / "Mar LO" / "Latest Outlook" / "for 2026"
+      -> filter period_scope eq 'full_year'
+- "half year" / "H1" / "H2"            -> filter period_scope eq 'half'
+- No period stated -> do NOT filter; rely on the recency boost (latest period
+  wins) and state the period you used.
+Combine with measure basis when the user implies it (e.g. reported actuals ->
+period_scope eq 'ytd' and measure_basis eq 'actual'). After filtering, still
+read fiscal_period/period_label on the hit you quote and state the period.
+=== END PERIOD ROUTING FILTER ===
+
 === ANSWER ASSEMBLY FOR "NET SALES" (the $ headline is the answer) ===
 When the user asks for "net sales" (a $ value), the PRIMARY answer is the
 currency row, even if a growth-% row ranks higher in the search results.
