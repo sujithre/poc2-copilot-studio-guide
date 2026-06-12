@@ -195,6 +195,23 @@ def _authority_boost(page_role: str, section: str = "") -> int:
     return _AUTHORITY_BY_ROLE.get(page_role, 0)
 
 
+# --- External-messages precedence (kept SEPARATE from the financial logic above
+# so the financial_results path is not disturbed). The user wants the IR Notes
+# message to surface FIRST and the Quarterly Update SECOND, every time. These
+# docs carry no brand_matrix page_role or grid section, so the financial
+# _authority_boost would return 0 for both, leaving the (newer) Quarterly Update
+# to win on recency. We stamp authority by SOURCE CLASS instead; the external
+# index uses an authority-only scoring profile (no freshness) so IR > Quarterly
+# is deterministic regardless of publication date.
+_EXTERNAL_AUTHORITY_BY_DOC_TYPE = {"ir_notes": 3, "quarterly_update": 2}
+_EXTERNAL_DOC_TYPES = frozenset(_EXTERNAL_AUTHORITY_BY_DOC_TYPE)
+
+
+def _external_authority(doc_type: str) -> int:
+    """Source-class precedence for external_messages docs (IR Notes > Quarterly)."""
+    return _EXTERNAL_AUTHORITY_BY_DOC_TYPE.get(doc_type, 0)
+
+
 def stable_id(*parts: str) -> str:
     raw = "::".join(p for p in parts if p)
     return hashlib.sha1(raw.encode()).hexdigest()[:20]
@@ -722,9 +739,14 @@ def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
         "text": text,
         **meta,
     }
-    # meta carries a page-level authority_boost (from page_role); upgrade it when
-    # THIS chunk's section caption identifies an authoritative period grid.
-    out["authority_boost"] = _authority_boost(meta.get("page_role", "") or "standard", section)
+    # Authority precedence. External-messaging docs (IR Notes / Quarterly Update)
+    # are ranked by SOURCE CLASS; all other docs keep the financial grid logic
+    # untouched (page_role / section caption).
+    doc_type = meta.get("doc_type", "")
+    if doc_type in _EXTERNAL_DOC_TYPES:
+        out["authority_boost"] = _external_authority(doc_type)
+    else:
+        out["authority_boost"] = _authority_boost(meta.get("page_role", "") or "standard", section)
     return out
 
 

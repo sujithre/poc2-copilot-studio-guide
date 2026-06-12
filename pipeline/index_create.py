@@ -37,7 +37,8 @@ from common import env, load_manifest
 EMBED_DIM = 3072  # text-embedding-3-large default
 
 
-def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model: str) -> SearchIndex:
+def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model: str,
+              logical: str = "") -> SearchIndex:
     fields = [
         SimpleField(name="id", type=SearchFieldDataType.String, key=True, filterable=True),
         # Copilot Studio's AI Search knowledge source auto-detects the field named `chunk`
@@ -185,8 +186,34 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
                     interpolation="linear",
                 ),
             ],
-        )
+        ),
+        # External-messages precedence: SOURCE CLASS, not date. The IR Notes
+        # message (authority_boost=3) must win over the Quarterly Update
+        # (authority_boost=2) every time - but the Quarterly Update is the NEWER
+        # doc, so a freshness function would invert that. This profile drops
+        # freshness entirely and keeps only the authority magnitude, so
+        # IR > Quarterly is deterministic. Default ONLY for external_messages;
+        # the financial index is untouched and keeps 'recency-boost'.
+        ScoringProfile(
+            name="external-authority",
+            functions=[
+                MagnitudeScoringFunction(
+                    field_name="authority_boost",
+                    boost=8.0,
+                    parameters=MagnitudeScoringParameters(
+                        boosting_range_start=0,
+                        boosting_range_end=3,
+                        should_boost_beyond_range_by_constant=True,
+                    ),
+                    interpolation="linear",
+                ),
+            ],
+        ),
     ]
+
+    # External messaging is ordered by source class (IR > Quarterly), so it uses
+    # the freshness-free profile. Every other index keeps recency (latest wins).
+    default_profile = "external-authority" if logical == "external_messages" else "recency-boost"
 
     return SearchIndex(
         name=name,
@@ -194,7 +221,7 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
         vector_search=vector_search,
         semantic_search=semantic_search,
         scoring_profiles=scoring_profiles,
-        default_scoring_profile="recency-boost",
+        default_scoring_profile=default_profile,
     )
 
 
@@ -228,7 +255,7 @@ def main() -> None:
                 client.delete_index(name)
             except Exception:
                 pass  # index may not exist yet
-        idx = index_def(name, aoai_endpoint, embed_deployment, embed_model)
+        idx = index_def(name, aoai_endpoint, embed_deployment, embed_model, logical=logical)
         client.create_or_update_index(idx)
         created.append({"logical": logical, "azure_index": name, "dropped": args.drop})
     print(json.dumps({"created_or_updated": created}, indent=2))
