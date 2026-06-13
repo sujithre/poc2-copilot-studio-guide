@@ -212,6 +212,23 @@ def _external_authority(doc_type: str) -> int:
     return _EXTERNAL_AUTHORITY_BY_DOC_TYPE.get(doc_type, 0)
 
 
+# --- Product-strategy precedence (also kept SEPARATE so finance/external are not
+# disturbed). The product_strategy index holds a Monthly Performance Report and a
+# Weekly Performance Pulse that overlap in coverage. The user wants the MONTHLY
+# report to win when the two cover the same period - but the weekly Pulse is
+# published a few days LATER, so the recency boost would otherwise float the
+# weekly above the monthly. Stamping authority by doc_type (monthly > weekly)
+# overcomes that small freshness gap, so the monthly is the source of truth on
+# overlap while recency still picks the latest report WITHIN each type.
+_PRODUCT_AUTHORITY_BY_DOC_TYPE = {"monthly_performance": 3, "weekly_performance": 1}
+_PRODUCT_DOC_TYPES = frozenset(_PRODUCT_AUTHORITY_BY_DOC_TYPE)
+
+
+def _product_authority(doc_type: str) -> int:
+    """Source-class precedence for product_strategy docs (Monthly > Weekly)."""
+    return _PRODUCT_AUTHORITY_BY_DOC_TYPE.get(doc_type, 0)
+
+
 def stable_id(*parts: str) -> str:
     raw = "::".join(p for p in parts if p)
     return hashlib.sha1(raw.encode()).hexdigest()[:20]
@@ -740,11 +757,14 @@ def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
         **meta,
     }
     # Authority precedence. External-messaging docs (IR Notes / Quarterly Update)
-    # are ranked by SOURCE CLASS; all other docs keep the financial grid logic
-    # untouched (page_role / section caption).
+    # rank by SOURCE CLASS; product-strategy docs (Monthly / Weekly Performance)
+    # rank by SOURCE CLASS too (Monthly > Weekly); all other docs keep the
+    # financial grid logic untouched (page_role / section caption).
     doc_type = meta.get("doc_type", "")
     if doc_type in _EXTERNAL_DOC_TYPES:
         out["authority_boost"] = _external_authority(doc_type)
+    elif doc_type in _PRODUCT_DOC_TYPES:
+        out["authority_boost"] = _product_authority(doc_type)
     else:
         out["authority_boost"] = _authority_boost(meta.get("page_role", "") or "standard", section)
     return out
