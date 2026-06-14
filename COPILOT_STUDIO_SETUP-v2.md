@@ -191,6 +191,26 @@ asks for multiple distinct dimensions (see rule 5).
    question to the user verbatim. Do NOT guess and do NOT call another
    child agent to fill the gap.
 
+=== ROUTE CLARIFICATION (ask only when genuinely ambiguous) ===
+Before answering, decide which ONE specialist the question targets:
+- $ figures (net sales, growth %, cost, margin, OPEX) -> Financials
+- NBRx / TRx / NRx / share / volume / commercial tactics -> Product Strategy
+- public positioning / guidance / "why does it matter" / IR narrative,
+  talking points, "what are we telling the Street" -> External Messages
+If the question clearly targets ONE area, route silently - do NOT ask.
+ONLY when the question is broad/ambiguous and could plausibly fit 2+ of the
+specialists - e.g. "why are Kisqali and Pluvicto so important?", "what's the
+story with Leqvio?", "tell me about Scemblix", "how is X doing?" with no
+metric or period - ask ONE short clarifying question first:
+  "Do you want the financial performance, the prescription / market metrics,
+   or the external positioning message?"
+Then route to the chosen specialist. Ask AT MOST ONCE per topic; if the user
+already answered this earlier in the conversation, do not ask again. If the
+broad phrasing is about importance / story / strategy / positioning and the
+user does not pick, DEFAULT to External Messages (that index frames why a
+brand matters) and say which area you used.
+=== END ROUTE CLARIFICATION ===
+
 When you compose the final answer:
 - Always preserve the markdown link citations the children return
   (`[<title>, p.<page>](<url>)`). Do NOT reformat them to (file, page).
@@ -640,6 +660,152 @@ user which specialist to ask:
 
 Cite (file, page) for any boilerplate text you do quote.
 ```
+
+---
+
+## 4.5 Disambiguation: route broad questions to the right area
+
+Some questions name a brand but not WHICH lens (financial vs metrics vs
+messaging), e.g. *"why are Kisqali and Pluvicto so important?"* or *"what's the
+story with Leqvio?"*. The parent can't reliably pick a single specialist. Two
+ways to handle it - **Option A** is the lighter instruction-only approach,
+**Option B** is the deterministic topic. You can use either, or both (B as a
+backstop for A).
+
+### Option A — Parent instruction (already added above)
+
+The **ROUTE CLARIFICATION** block in the parent instructions (section 3) tells
+the parent to ask ONE question only when a brand question is broad/ambiguous,
+then route to the chosen area, defaulting to External Messages for
+importance/story/positioning phrasing. Nothing else to build - it works through
+generative orchestration. Caveat: instruction-driven follow-ups depend on the
+model's confidence and the *Allow ungrounded responses* setting, so they are
+high-quality but not 100% guaranteed to fire.
+
+### Option B — "Clarify Which Area" topic (deterministic)
+
+A Topic + Question node ALWAYS fires regardless of the ungrounded-responses
+setting, so use it when you want the clarification to be guaranteed. Build it on
+the **PARENT** agent.
+
+**1. Entity (optional but recommended): `AreaScope`**
+Settings → Entities → **+ New entity → Closed list** → name `AreaScope`. Three
+items; paste the synonyms (one per line) so an already-clear question auto-skips
+the question:
+
+- Item value `financial`:
+```
+financials
+financial performance
+net sales
+sales
+revenue
+growth
+margin
+cost
+opex
+how much
+dollars
+$
+```
+- Item value `metrics`:
+```
+prescription
+prescriptions
+NBRx
+TRx
+NRx
+market share
+share
+volume
+demand
+scripts
+patient starts
+uptake
+```
+- Item value `messaging`:
+```
+positioning
+message
+messages
+talking points
+guidance
+external
+investor
+IR
+why important
+why does it matter
+the story
+strategy
+narrative
+```
+
+**2. Topic: `Clarify Which Area`**
+Topics → **+ Add a topic → From blank** → name it `Clarify Which Area`.
+
+Trigger (type "The agent chooses") — description:
+```
+Use this topic when the user asks a BROAD or open-ended question about a brand
+or the business that names a product but does NOT specify whether they want
+financial performance, prescription/market metrics, or external positioning.
+Examples: "why are Kisqali and Pluvicto so important?", "what's the story with
+Leqvio?", "tell me about Scemblix", "how is Kesimpta doing?". Do NOT use this
+topic when the question already clearly targets one area (a $ figure, an
+NBRx/TRx/share metric, or an explicit messaging/guidance ask) - those should
+route straight to the matching specialist without a question.
+```
+
+Node 1 — **Ask a question**
+- Message:
+```
+Happy to help with that. Do you want the financial performance, the
+prescription / market metrics, or the external positioning message?
+```
+- Identify: **Multiple choice options** (exact text):
+```
+Financial performance
+Prescription / market metrics
+External positioning
+```
+- Also attach the **`AreaScope` entity** under Identify (auto-skips when the
+  user already implied the area).
+- Save user response as: `AreaChoice`
+
+Node 2 — **Set variable value** (Global string `SelectedArea`), To value → Formula:
+```powerfx
+Switch(
+    Text(Topic.AreaChoice),
+    "Financial performance", "financial",
+    "Prescription / market metrics", "metrics",
+    "External positioning", "messaging",
+    "messaging"
+)
+```
+
+Node 3 — route on `Global.SelectedArea`. Use a **Condition** node:
+- `financial`  → call the **Financials** child agent
+- `metrics`    → call the **Product Strategy** child agent
+- `messaging`  → call the **External Messages** child agent
+(If your build routes via generative orchestration rather than explicit child
+calls, instead set the topic to hand back to orchestration with the chosen area
+stated, e.g. a message "Routing to {Global.SelectedArea}…" and let the parent
+pick - but the explicit Condition route is the deterministic option.)
+
+**Verify after Publish (new chat):**
+
+| Test input | Expected |
+| --- | --- |
+| "why are Kisqali and Pluvicto so important?" | Asks: Financial / Metrics / Positioning |
+| Choose **External positioning** | Answers from External Messages |
+| "Kisqali Q1 net sales" | Does NOT ask - routes straight to Financials |
+| "Kisqali NBRx share" | Does NOT ask - routes straight to Product Strategy |
+| "what are we telling the Street about Leqvio?" | Does NOT ask - External Messages |
+
+Troubleshooting:
+- Asks on an already-clear question → tighten the trigger description and add
+  the giveaway word to the matching `AreaScope` item.
+- Doesn't ask on a broad question → loosen the trigger description / add the
+  broad phrasing ("the story", "why important") as examples.
 
 ---
 
