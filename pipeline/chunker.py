@@ -164,6 +164,30 @@ def clean_doc_url(raw: str) -> str:
     return urlunsplit(parts._replace(path=path, query=query, fragment=fragment))
 
 
+def _title_with_page(title: str, page) -> str:
+    """Append '(p.N)' to the citation title so the native Copilot Studio citation
+    chip shows the page number (chips render the `title` field). Works for every
+    file type - Word/PPT/PDF - unlike a #page deep-link."""
+    t = (title or "").strip()
+    if page:
+        return f"{t} (p.{page})"
+    return t
+
+
+def _doc_url_with_page(url: str, page) -> str:
+    """Append a '#page=N' deep-link ONLY for PDFs. Office files (.docx/.pptx)
+    opened in the SharePoint/Office web viewer do NOT honor '#page=N' - the
+    fragment makes the viewer land on a broken / 'page not found' view (this is
+    what broke the IR Notes .docx citation). The page number is still visible in
+    the title via _title_with_page, so non-PDF citations stay accurate."""
+    if not url or not page:
+        return url
+    base = url.split("#", 1)[0].split("?", 1)[0].lower()
+    if base.endswith(".pdf"):
+        return f"{url}#page={page}"
+    return url
+
+
 # Retrieval precedence weight. The authoritative brand x period grids - the
 # monthly "<Month> Net Sales", the YTD "<Month> YTD Net Sales", and the
 # "FY Corporate <Month> LO by Brand" tables - are the source-of-truth matrices a
@@ -710,7 +734,14 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         "publication_date": doc.get("publication_date") or "",
         "geography": doc.get("geography", ""),
         "page": page_obj.get("page"),
-        "title": doc.get("title") or page_obj.get("title", "") or doc["doc_id"],
+        # Page number is appended to the TITLE so the native Copilot Studio
+        # citation chip shows it (chips render the `title` field). This makes the
+        # page visible without any model citation instructions. The page is also
+        # the #page= deep-link in `url` for PDFs (see below).
+        "title": _title_with_page(
+            doc.get("title") or page_obj.get("title", "") or doc["doc_id"],
+            page_obj.get("page"),
+        ),
         "page_kind": page_obj.get("page_kind", ""),
         # Period / basis disambiguation (page-level defaults; KPI rows specialise)
         "period_scope": page_obj.get("period_scope") or "unknown",
@@ -736,8 +767,9 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         "is_official_disclosure": bool(doc.get("is_official_disclosure", False)),
         "tags": doc.get("tags", []),
         "source_uri": doc["source"],
-        "url": clean_doc_url(doc.get("sharepoint_url") or doc["source"]) + (
-            f"#page={page_obj.get('page')}" if page_obj.get("page") else ""
+        "url": _doc_url_with_page(
+            clean_doc_url(doc.get("sharepoint_url") or doc["source"]),
+            page_obj.get("page"),
         ),
         "filepath": clean_doc_url(doc.get("sharepoint_url") or doc["source"]),
         "extractor_version": EXTRACTOR_VERSION,

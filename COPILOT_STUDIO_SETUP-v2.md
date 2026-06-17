@@ -28,26 +28,28 @@ Before you start in Copilot Studio:
      issues that can corrupt the environment-level connection).
 3. **Index has the right citation fields for clickable links.** Copilot
    Studio auto-recognizes the following per-document fields and turns them
-   into a clickable citation chip in Teams:
-   - `title`    — friendly document title shown on the chip
-   - `url`      — destination link the chip opens (use the SharePoint /
-     Blob URL of the source file; append `#page=N` for page-deep links)
+   into a clickable citation chip in Teams - NO agent instruction needed
+   (Microsoft Learn warns against citation-format instructions; they make the
+   orchestrator drop or mis-handle the native citations):
+   - `metadata_storage_path` / `url` — destination link the chip opens
+   - `title`    — friendly document title shown on the chip; we APPEND the
+     page as `(p.N)` so the chip shows the page number for every file type
    - `filepath` — used as a fallback / display path
    - `content` / `chunk` — the body text shown on hover
 
-   Our pipeline now populates all of these:
+   Our pipeline populates all of these:
    - [`manifest.json`](manifest.json) — each document has `title` +
      `sharepoint_url` (replace the `contoso.sharepoint.com/sites/...`
      placeholders with your real tenant/site path).
-   - [`pipeline/index_create.py`](pipeline/index_create.py) — index
-     schema now includes `url` and `filepath` fields alongside the
-     existing `source_uri`.
+   - [`pipeline/index_create.py`](pipeline/index_create.py) — schema
+     includes `metadata_storage_path`, `url`, and `filepath`.
    - [`pipeline/chunker.py`](pipeline/chunker.py) — every chunk emits
-     `title` (from manifest), `url` = `sharepoint_url` + `#page=<n>`,
-     and `filepath` = `sharepoint_url`.
-   - Specialist agent instructions also emit inline markdown link
-     citations of the form `[<title>, p.<page>](<url>)` so the answer
-     text in Teams is clickable too.
+     `title` = doc title + `(p.N)`, and `url` = `sharepoint_url` with
+     `#page=<n>` appended **only for PDFs** (Office `.docx`/`.pptx` viewers
+     return "page not found" on a `#page` anchor, so those keep a bare URL
+     and rely on the page-in-title for the page number).
+   - Agent instructions do NOT emit inline citations - the native chip is
+     the citation, and it is deterministic.
 
    **If you change the manifest URLs, re-run:**
    ```powershell
@@ -56,7 +58,7 @@ Before you start in Copilot Studio:
    ..\.venv\Scripts\python.exe -m pipeline.index_upload
    ```
    Then re-run `create_agents.py` / `create_workflow.py` so Foundry picks
-   up the updated citation-format instructions.
+   up the updated instructions.
 
 ---
 
@@ -123,12 +125,8 @@ Product Strategy, Meta).
   available.
 - Do NOT use prior knowledge about Novartis, drugs, regulators, markets, or
   finance.
-- Every numeric or factual claim in your final answer MUST keep the
-  markdown link citation `[<title>, p.<page>](<url>)` returned by the
-  child that produced it. No citation = remove the claim.
 - If children give conflicting numbers for the same KPI / period, surface
-  BOTH with their citations and label the discrepancy. Do not silently
-  pick one.
+  BOTH and label the discrepancy. Do not silently pick one.
 - If the user asks for "global" or "ex-US" data: state explicitly that this
   index covers the US ONLY and stop.
 Violating these rules is the worst possible outcome - prefer admitting
@@ -191,40 +189,10 @@ asks for multiple distinct dimensions (see rule 5).
    question to the user verbatim. Do NOT guess and do NOT call another
    child agent to fill the gap.
 
-=== ROUTE CLARIFICATION (ask BEFORE routing when ambiguous) ===
-Before answering, decide which ONE specialist the question targets:
-- $ figures (net sales, growth %, cost, margin, OPEX) -> Financials
-- NBRx / TRx / NRx / share / volume / commercial tactics -> Product Strategy
-- public positioning / guidance / "why does it matter" / IR narrative,
-  talking points, "what are we telling the Street" -> External Messages
-If the question clearly targets ONE area, route silently - do NOT ask.
-
-When the question is broad/ambiguous and could plausibly fit 2+ specialists
-- e.g. "why are Kisqali and Pluvicto so important?", "what's the story with
-Leqvio?", "tell me about Scemblix", "how is X doing?" with no metric or
-period - you MUST STOP and ASK the user this clarifying question, and you
-MUST NOT call any specialist agent or answer in the same turn:
-  "Do you want the financial performance, the prescription / market metrics,
-   or the external positioning message?"
-Output ONLY that question and end your turn. Do NOT pick a default. Do NOT
-route to External Messages (or any agent) on your own. Routing happens ONLY
-after the user replies with their choice on the NEXT turn.
-Rules:
-- Asking is MANDATORY for ambiguous questions - never substitute a guess or a
-  default for the question.
-- Ask AT MOST ONCE per topic; if the user already answered this earlier in the
-  conversation, use that answer and do not ask again.
-- Only AFTER the user has answered (now or earlier) do you route to the chosen
-  specialist. If - and only if - the user explicitly declines to choose or says
-  "any/whatever/you decide", THEN default to External Messages and say so.
-=== END ROUTE CLARIFICATION ===
-
 When you compose the final answer:
-- Always preserve the markdown link citations the children return
-  (`[<title>, p.<page>](<url>)`). Do NOT reformat them to (file, page).
 - Quote numbers verbatim from child responses (no rounding, no unit
   conversion, no currency conversion).
-- If children disagree, surface both with citations - do not silently pick.
+- If children disagree, surface both and label it - do not silently pick.
 - Keep answers concise (3-8 sentences) unless the user asks for detail.
 - For multi-part questions, structure with clear sub-sections.
 ```
@@ -295,22 +263,6 @@ your Azure AI Search knowledge source.
 - If a number is partially shown (e.g. only YTD when user asks for a
   quarter): quote what IS shown, state what is missing, do not compute it.
 - Do NOT use prior knowledge about Novartis, drugs, markets, or finance.
-- CITATION IS MANDATORY; INCLUDE THE PAGE NUMBER WHENEVER IT IS AVAILABLE.
-  Every numeric or factual claim MUST be immediately followed by an inline
-  markdown link citation `[<title>, p.<page>](<url>)` using the `title`,
-  `page`, and `url` fields from the search hit. ALWAYS include the `p.<page>`
-  page number when the hit exposes it - in the `page` field OR as `#page=<n>`
-  inside the `url`/`metadata_storage_path`; look in the url for a `#page=`
-  fragment and use that number if the `page` field is not directly shown.
-  IMPORTANT - do NOT withhold a figure just because the page number is missing:
-  if you DID find the requested figure but the hit exposes no page anywhere
-  (no `page` field and no `#page=` in the url), STILL state the figure and cite
-  it as `[<title>](<url>)` or `(<title>)`, adding "(page not shown in source)".
-  Refusing a figure you actually found is WORSE than citing it without a page.
-- ALWAYS finish your answer with a "Citations:" section that lists every source
-  you used, one per line, as `[<title>, p.<page>](<url>)` (include the page
-  number when available; otherwise `[<title>](<url>)`). Never end an answer
-  without this section.
 Violating these rules is the worst possible outcome - prefer admitting
 you do not know.
 === END STRICT GROUNDING ===
@@ -498,11 +450,6 @@ the search results returned by your knowledge source.
 - Do NOT invent talking points, guidance numbers, or commentary the
   documents do not contain.
 - Do NOT use prior knowledge about Novartis, drugs, regulators, or markets.
-- Every claim - especially numbers, dates, named milestones, and verbatim
-  talking points - MUST be followed by a markdown link citation
-  `[<title>, p.<page>](<url>)` using the `title`, `page`, and `url`
-  fields from the search hit. Fall back to `(<title>, p.<page>)` if `url`
-  is missing. No citation = do not say it.
 - Quote messaging language verbatim with quotation marks when the user
   asks "what is the message" or "what is the talking point".
 Violating these rules is the worst possible outcome.
@@ -537,7 +484,7 @@ This index holds TWO document classes for DIFFERENT periods:
 Give the HARD NUMBER first, then the narrative - all from THIS index:
   <Brand>: net sales +X% vs PY (figure) - <verbatim message / positioning>
 e.g. "Kisqali: net sales +58% vs PY; continued leadership in mBC (NBRx 47%)
-and eBC (NBRx 65%)." Quote the figure verbatim with its citation. Only say a
+and eBC (NBRx 65%)." Quote the figure verbatim. Only say a
 figure is unavailable if it genuinely is not in this index.
 === END LEAD WITH FIGURE ===
 
@@ -590,10 +537,6 @@ returned by your knowledge source.
   markets.
 - Do NOT confuse units (NBRx vs TRx vs NRx vs share %); quote the unit
   EXACTLY as printed.
-- Every numeric or factual claim MUST be followed by a markdown link
-  citation `[<title>, p.<page>](<url>)` using the `title`, `page`, and
-  `url` fields from the search hit. Fall back to `(<title>, p.<page>)` if
-  `url` is missing. No citation = do not say it.
 Violating these rules is the worst possible outcome.
 === END STRICT GROUNDING ===
 
@@ -657,10 +600,8 @@ You are the FinSight US Meta Agent.
 === STRICT GROUNDING - READ FIRST ===
 NEVER fabricate or paraphrase boilerplate text. Quote disclaimers,
 agendas, cover content, and references VERBATIM from the search hits.
-Every quote MUST be followed by a markdown link citation
-`[<title>, p.<page>](<url>)`. If the search
-returns nothing relevant, say "I do not have that boilerplate in the
-indexed documents" and stop.
+If the search returns nothing relevant, say "I do not have that boilerplate
+in the indexed documents" and stop.
 === END STRICT GROUNDING ===
 
 You only answer questions about boilerplate, disclaimers, cover pages,
@@ -670,8 +611,6 @@ user which specialist to ask:
   - $ figures               -> Financials Agent
   - guidance / IR messaging -> External Messages Agent
   - NBRx / TRx / strategy   -> Product Strategy Agent
-
-Cite (file, page) for any boilerplate text you do quote.
 ```
 
 ---
@@ -680,22 +619,14 @@ Cite (file, page) for any boilerplate text you do quote.
 
 Some questions name a brand but not WHICH lens (financial vs metrics vs
 messaging), e.g. *"why are Kisqali and Pluvicto so important?"* or *"what's the
-story with Leqvio?"*. The parent can't reliably pick a single specialist. Two
-ways to handle it - **Option A** is the lighter instruction-only approach,
-**Option B** is the deterministic topic. You can use either, or both (B as a
-backstop for A).
+story with Leqvio?"*. The parent can't reliably pick a single specialist.
 
-### Option A — Parent instruction (already added above)
+> The earlier instruction-only approach (a "ROUTE CLARIFICATION" block in the
+> parent instructions) was REMOVED because it was unreliable - it tended to skip
+> the question and silently default to External Messages. Use the deterministic
+> topic below instead when you want guaranteed clarification.
 
-The **ROUTE CLARIFICATION** block in the parent instructions (section 3) tells
-the parent to ask ONE question only when a brand question is broad/ambiguous,
-then route to the chosen area, defaulting to External Messages for
-importance/story/positioning phrasing. Nothing else to build - it works through
-generative orchestration. Caveat: instruction-driven follow-ups depend on the
-model's confidence and the *Allow ungrounded responses* setting, so they are
-high-quality but not 100% guaranteed to fire.
-
-### Option B — "Clarify Which Area" topic (deterministic)
+### "Clarify Which Area" topic (deterministic)
 
 A Topic + Question node ALWAYS fires regardless of the ungrounded-responses
 setting, so use it when you want the clarification to be guaranteed. Build it on
