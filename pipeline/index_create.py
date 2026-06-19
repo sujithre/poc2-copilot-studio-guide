@@ -187,13 +187,16 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
                 ),
             ],
         ),
-        # External-messages precedence: SOURCE CLASS, not date. The IR Notes
-        # message (authority_boost=3) must win over the Quarterly Update
-        # (authority_boost=2) every time - but the Quarterly Update is the NEWER
-        # doc, so a freshness function would invert that. This profile drops
-        # freshness entirely and keeps only the authority magnitude, so
-        # IR > Quarterly is deterministic. Default ONLY for external_messages;
-        # the financial index is untouched and keeps 'recency-boost'.
+        # External-messages precedence: SOURCE CLASS first, DATE as tiebreaker.
+        # The IR Notes message (authority_boost=3) must win over the Quarterly
+        # Update (authority_boost=2) every time - so the authority magnitude is
+        # the dominant force (boost 8.0 => ~+2.7 for IR vs Quarterly). A GENTLE
+        # freshness function (boost 1.5) is added so that BETWEEN two same-class
+        # docs (e.g. a Q4 2025 IR Notes and a newer Q1 2026 IR Notes, both
+        # authority=3) the NEWER one wins. The freshness max (<=1.5) is smaller
+        # than the authority gap (~2.7), so it can only break ties within a
+        # class - it never lets a newer Quarterly Update overtake an IR Notes.
+        # Default ONLY for external_messages; finance is untouched.
         ScoringProfile(
             name="external-authority",
             functions=[
@@ -205,6 +208,12 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
                         boosting_range_end=3,
                         should_boost_beyond_range_by_constant=True,
                     ),
+                    interpolation="linear",
+                ),
+                FreshnessScoringFunction(
+                    field_name="recency_date",
+                    boost=1.5,
+                    parameters=FreshnessScoringParameters(boosting_duration="P730D"),
                     interpolation="linear",
                 ),
             ],

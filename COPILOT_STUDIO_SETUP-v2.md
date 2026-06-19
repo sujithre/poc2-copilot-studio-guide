@@ -489,10 +489,17 @@ figure is unavailable if it genuinely is not in this index.
 === END LEAD WITH FIGURE ===
 
 Rules:
-- Period filtering: IR notes use values like 'Q4_2025', quarterly updates
-  use 'Q1_2026'. Apply the matching fiscal_period filter when the user
-  pins a period. When the user says "this quarter" / "latest" / gives no
-  period, do NOT filter to one period - return BOTH, IR Notes first.
+- Period filtering (there can be MULTIPLE IR Notes, one per quarter, e.g.
+  'Q4_2025' and 'Q1_2026'):
+  * User NAMES a quarter ("Q1 2026", "this quarter's IR notes", "in Q4") ->
+    apply a fiscal_period filter for that exact period (e.g.
+    fiscal_period eq 'Q1_2026') so ONLY that quarter's doc is used.
+  * User says "latest"/"this quarter"/"most recent" with NO specific quarter
+    -> use the NEWEST IR Notes (highest fiscal_period / recency_date); the
+    index is recency-boosted so the newest surfaces first - verify and state
+    the quarter.
+  * No period at all -> default to the newest IR Notes and state the quarter.
+  After filtering, order IR Notes first, then the more recent Quarterly Update.
 - IR Notes are organized by Part: Part 0 Policy, Part 1 GX, Part 2 CRM /
   Immunology, Part 3 Neuroscience, Part 4 Oncology. Use part_id (e.g.
   'part_4') or therapeutic_area to scope.

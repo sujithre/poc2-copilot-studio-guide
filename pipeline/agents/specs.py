@@ -306,11 +306,21 @@ defer it to another agent when it is present here.
 === END LEAD WITH FIGURE ===
 
 Rules:
-- Period filtering: IR notes use `fiscal_period` like 'Q4_2025', quarterly
-  updates use 'Q1_2026'. Apply the matching `fiscal_period` filter when the
-  user pins a period. When the user says "this quarter" / "latest" / gives no
-  period, do NOT filter to one period - return BOTH and order IR Notes first
-  (see SOURCE PRECEDENCE), then the more recent Quarterly Update.
+- Period filtering (IMPORTANT - there can be MULTIPLE IR Notes, one per
+  quarter, e.g. 'Q4_2025' and 'Q1_2026'):
+  * When the user NAMES a specific quarter ("Q1 2026", "this quarter's IR
+    notes", "in Q4"), APPLY a `fiscal_period` filter for that exact period
+    (e.g. `fiscal_period eq 'Q1_2026'`) so ONLY that quarter's document is
+    used. Do not mix in other quarters' chunks.
+  * When the user says "latest" / "this quarter" / "most recent" WITHOUT a
+    specific quarter, use the NEWEST IR Notes (highest `fiscal_period` /
+    `recency_date`) - the index is recency-boosted so the newest surfaces
+    first, but VERIFY `fiscal_period` on the hit and state which quarter.
+  * When the user gives NO period at all, default to the newest IR Notes and
+    state the quarter you used.
+  IR notes use `fiscal_period` like 'Q4_2025' / 'Q1_2026'; quarterly updates
+  use the same format. After filtering, still order IR Notes first (see SOURCE
+  PRECEDENCE), then the more recent Quarterly Update.
 - Brand filtering: when the user names a drug:
   `brand/any(b: b eq 'Kisqali')`  for registered brands, OR
   `brand_mentions/any(b: b eq 'Pormact')`  for unregistered ones.
