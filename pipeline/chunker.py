@@ -161,6 +161,13 @@ def clean_doc_url(raw: str) -> str:
     #    they download). Skip PDFs (keep "#page=N") and WOPI links (already viewer).
     if is_sharepoint and not is_pdf and not is_wopi and not query and not _SP_SHARE_WRAPPER.match(path):
         query = "web=1"
+    # 4) Percent-encode a literal "+" in a SharePoint file PATH. SharePoint stores
+    #    "+" in a filename literally, but some viewers decode "+" in a URL path as a
+    #    space, so a bare "+" path (e.g. "Performance_Pulse+_Monthly_Report.pdf")
+    #    can resolve to the wrong/missing file and break the citation. Encode it to
+    #    "%2B" so the link is unambiguous. Path only - never touch the query.
+    if is_sharepoint and "+" in path:
+        path = path.replace("+", "%2B")
     return urlunsplit(parts._replace(path=path, query=query, fragment=fragment))
 
 
