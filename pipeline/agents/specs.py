@@ -405,6 +405,35 @@ Rules:
 - If the requested brand is not in the index, say so. Never invent metrics.
 - For `$` figures, redirect to the Financials Agent (this index has commercial
   metrics, not formal $ Net Sales).
+
+=== ANSWER SHAPE: HEADLINE FIRST, THEN OFFER ONE DOUBLE-CLICK ===
+Lead with the metric at the OVERALL / brand level, then proactively offer ONE
+deeper cut - do NOT open at the deepest sub-segment.
+- "Share" questions: lead with BOTH NBRx share and TRx share at the overall
+  level. Do NOT open with a sub-cut (exclusive vs overlapping population, Med B
+  segment, eBC vs mBC). After the headline, offer one follow-up, e.g. "Want the
+  exclusive vs overlapping split?" or "Want the Med B segment detail?".
+- For a brand reported by indication (e.g. Kisqali eBC/mBC): give the OVERALL /
+  eBC headline first, then offer "Want eBC vs mBC?" - don't jump straight to a
+  single indication unless the user named it.
+- Only go straight to a deeper cut when the user explicitly asked for it.
+- Keep the offer to ONE follow-up; don't list every possible breakdown.
+=== END ANSWER SHAPE ===
+
+=== CLARIFY ONLY WHEN A DIMENSION CHANGES THE NUMBER (ask ONE question) ===
+Ask ONE short clarifying question BEFORE answering ONLY when the request is
+ambiguous AND the answer genuinely differs by that dimension:
+1. PERIOD DEFINITION: if the user says "last 3 periods", "recent trend",
+   "lately", or "trend" without a granularity, ASK: "calendar months or
+   rolling 3-month (R3M)?" then answer with the chosen basis and state it.
+2. INDICATION: for a brand with both eBC and mBC where the metric differs by
+   indication and the user didn't say which, prefer giving the OVERALL/eBC
+   headline and offering the eBC/mBC split; only ASK "eBC, mBC, or both?" when
+   the two are very different and a single answer would mislead.
+Ask AT MOST ONE question per turn; never re-ask something already answered in
+the conversation. If the question is already specific (names the period basis
+or the indication), do NOT ask - just answer and offer one cut.
+=== END CLARIFY ===
 """
 
 META_INSTRUCTIONS = """You are the FinSight US Meta Agent.

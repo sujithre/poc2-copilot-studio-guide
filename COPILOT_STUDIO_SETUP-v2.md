@@ -589,6 +589,34 @@ Rules:
   the latest monthly. State the period you used.
 - For $ figures, redirect to the Financials Agent (this index has
   commercial metrics, not formal $ Net Sales).
+
+=== ANSWER SHAPE: HEADLINE FIRST, THEN OFFER ONE DOUBLE-CLICK ===
+Lead with the metric at the OVERALL / brand level, then proactively offer ONE
+deeper cut - do NOT open at the deepest sub-segment.
+- "Share" questions: lead with BOTH NBRx share and TRx share at the overall
+  level. Do NOT open with a sub-cut (exclusive vs overlapping population, Med B
+  segment, eBC vs mBC). After the headline, offer one follow-up, e.g. "Want the
+  exclusive vs overlapping split?" or "Want the Med B segment detail?".
+- For a brand reported by indication (e.g. Kisqali eBC/mBC): give the OVERALL /
+  eBC headline first, then offer "Want eBC vs mBC?" - don't jump to a single
+  indication unless the user named it.
+- Only go straight to a deeper cut when the user explicitly asked for it; keep
+  the offer to ONE follow-up.
+=== END ANSWER SHAPE ===
+
+=== CLARIFY ONLY WHEN A DIMENSION CHANGES THE NUMBER (ask ONE question) ===
+Ask ONE short clarifying question BEFORE answering ONLY when the request is
+ambiguous AND the answer genuinely differs by that dimension:
+1. PERIOD DEFINITION: if the user says "last 3 periods", "recent trend",
+   "lately", or "trend" without a granularity, ASK: "calendar months or
+   rolling 3-month (R3M)?" then answer and state the basis.
+2. INDICATION: for a brand with both eBC and mBC where the metric differs and
+   the user didn't say which, prefer the OVERALL/eBC headline + offer the
+   eBC/mBC split; only ASK "eBC, mBC, or both?" when a single answer would
+   mislead.
+Ask AT MOST ONE question per turn; never re-ask something already answered. If
+the question already names the period basis or indication, do NOT ask.
+=== END CLARIFY ===
 ```
 
 #### d) Meta
@@ -757,6 +785,91 @@ Troubleshooting:
   the giveaway word to the matching `AreaScope` item.
 - Doesn't ask on a broad question → loosen the trigger description / add the
   broad phrasing ("the story", "why important") as examples.
+
+---
+
+## 4.6 Disambiguation: "last 3 periods" → months vs R3M (Product Strategy)
+
+Product-metric "trend / last 3 periods" questions are ambiguous: **calendar
+months** and **rolling 3-month (R3M)** give different numbers. The Product
+Strategy agent instructions already ASK this, but instruction-based questions
+can be skipped under generative orchestration. For a guaranteed prompt, add
+this deterministic topic on the **PARENT** agent (a Topic + Question node always
+fires).
+
+**1. Entity: `PeriodBasis`** (Settings → Entities → + New → Closed list)
+
+- Item `months`:
+```
+months
+calendar months
+monthly
+month by month
+last 3 months
+past three months
+```
+- Item `r3m`:
+```
+R3M
+rolling 3 month
+rolling three month
+rolling
+3-month rolling
+trailing 3 months
+```
+
+**2. Topic: `Clarify Reporting Period`** (Topics → + Add → From blank)
+
+Trigger (type "The agent chooses") — description:
+```
+Use this topic when the user asks for a PRODUCT METRIC trend (NBRx, TRx, NRx,
+market share, volume) "over the last 3 periods", "recent trend", "lately", or
+"trend" but does NOT say whether they mean calendar months or a rolling 3-month
+(R3M) basis. Ask which basis before answering. Do NOT use this topic when the
+user already specifies the basis, names a single period, or asks for a $ figure.
+```
+
+Node 1 — **Ask a question**
+- Message:
+```
+Quick check - do you mean the last 3 calendar months, or a rolling 3-month
+(R3M) basis?
+```
+- Identify: **Multiple choice** options:
+```
+Calendar months
+Rolling 3-month (R3M)
+```
+- Also attach the **`PeriodBasis`** entity (auto-skips if the user already said R3M).
+- Save response as: `PeriodBasisChoice`
+
+Node 2 — **Set variable** (Global string `SelectedPeriodBasis`), To value → Formula:
+```powerfx
+Switch(
+    Text(Topic.PeriodBasisChoice),
+    "Calendar months", "months",
+    "Rolling 3-month (R3M)", "r3m",
+    "months"
+)
+```
+
+Node 3 — hand back to orchestration (or call the Product Strategy child) with
+the basis stated, e.g. a message "Showing the {Global.SelectedPeriodBasis}
+view…" then let the agent answer on that basis.
+
+**Verify after Publish (new chat):**
+
+| Test input | Expected |
+| --- | --- |
+| "TRx trend for Kesimpta over the last 3 periods" | Asks: Calendar months / R3M |
+| "Kesimpta TRx, R3M" | Skips the question (entity auto-fills), answers R3M |
+| "Kesimpta TRx in May 2026" | Does NOT ask - single period named |
+
+> Note on **indication (eBC vs mBC)** and **segment (Med B)**: these are handled
+> by the Product Strategy *instructions* (headline-first + offer one cut), NOT a
+> topic - the agent leads with the overall metric and offers the split, so a
+> hard question is usually unnecessary. Add a topic only if testing shows the
+> agent still dives straight into a sub-segment.
 
 ---
 
