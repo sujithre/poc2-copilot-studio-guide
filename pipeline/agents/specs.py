@@ -433,6 +433,9 @@ ambiguous AND the answer genuinely differs by that dimension:
 Ask AT MOST ONE question per turn; never re-ask something already answered in
 the conversation. If the question is already specific (names the period basis
 or the indication), do NOT ask - just answer and offer one cut.
+If a `reporting_basis` input is provided ('months' or 'r3m'), use it directly
+as the period basis, state which basis you used, and do NOT ask the period
+question. Only ask when no basis is provided AND the request is vague.
 === END CLARIFY ===
 """
 

@@ -616,6 +616,8 @@ ambiguous AND the answer genuinely differs by that dimension:
    mislead.
 Ask AT MOST ONE question per turn; never re-ask something already answered. If
 the question already names the period basis or indication, do NOT ask.
+If a `reporting_basis` input is provided ('months' or 'r3m'), use it directly,
+state which basis you used, and do NOT ask the period question.
 === END CLARIFY ===
 ```
 
@@ -835,27 +837,51 @@ Node 1 — **Ask a question**
 Quick check - do you mean the last 3 calendar months, or a rolling 3-month
 (R3M) basis?
 ```
-- Identify: **Multiple choice** options:
+- Identify: **Multiple choice** options (use these EXACT values so no Switch is
+  needed downstream):
 ```
-Calendar months
-Rolling 3-month (R3M)
+months
+r3m
 ```
 - Also attach the **`PeriodBasis`** entity (auto-skips if the user already said R3M).
 - Save response as: `PeriodBasisChoice`
 
-Node 2 — **Set variable** (Global string `SelectedPeriodBasis`), To value → Formula:
+Node 2 — **Set variable** (Global string `SelectedPeriodBasis`), To value → Formula.
+Because the option values are already `months` / `r3m`, no Switch is needed:
 ```powerfx
-Switch(
-    Text(Topic.PeriodBasisChoice),
-    "Calendar months", "months",
-    "Rolling 3-month (R3M)", "r3m",
-    "months"
-)
+Text(Topic.PeriodBasisChoice)
 ```
 
-Node 3 — hand back to orchestration (or call the Product Strategy child) with
-the basis stated, e.g. a message "Showing the {Global.SelectedPeriodBasis}
-view…" then let the agent answer on that basis.
+Node 3 — **Agent node → call the Product Strategy child**, passing the basis
+INVISIBLY via a child-agent Input (NOT a message - a Message node would be shown
+to the user and stored in history).
+
+Set this up in two places:
+
+(a) On the **Product Strategy child agent → Inputs → + Add input**:
+- **Display name:** `reporting_basis`
+- **Description:** "The reporting basis for product-metric trends: 'months'
+  (calendar months) or 'r3m' (rolling 3-month). Provided by the orchestrator."
+- **Make this input required:** OFF (normal questions without a basis still work)
+- **Data type:** String
+- **Advanced → Should prompt user:** **OFF** ← this is what keeps it hidden; the
+  agent only uses the value passed in and never asks the user for it.
+- Save.
+
+(b) On the topic's **Agent (Product Strategy)** node, map the input value:
+```
+reporting_basis = Global.SelectedPeriodBasis
+```
+
+(c) Add one line to the **Product Strategy child agent Instructions**:
+```
+If a `reporting_basis` input is provided ('months' or 'r3m'), answer
+product-metric trends on that basis and state which basis you used. If it is
+empty, follow the CLARIFY rule (ask months vs R3M).
+```
+
+Result: the user sees only the friendly question and the final answer; the basis
+flows Question → SelectedPeriodBasis → agent input, with nothing extra shown.
 
 **Verify after Publish (new chat):**
 
