@@ -161,6 +161,14 @@ def clean_doc_url(raw: str) -> str:
     #    they download). Skip PDFs (keep "#page=N") and WOPI links (already viewer).
     if is_sharepoint and not is_pdf and not is_wopi and not query and not _SP_SHARE_WRAPPER.match(path):
         query = "web=1"
+    # 3b) DEFENSIVE: a PDF must NOT carry "?web=1". web=1 routes a PDF through the
+    #    SharePoint preview viewer, which IGNORES "#page=N" and can fail to resolve
+    #    (this is what kept breaking the Performance Pulse PDF citation). If a
+    #    manifest sharepoint_url was pasted with "?web=1" on a PDF, strip it here so
+    #    PDFs always keep a bare path + working "#page" deep-link.
+    if is_pdf and query:
+        kept = [seg for seg in query.split("&") if seg.split("=", 1)[0].lower() != "web"]
+        query = "&".join(kept)
     # 4) Percent-encode a literal "+" in a SharePoint file PATH. SharePoint stores
     #    "+" in a filename literally, but some viewers decode "+" in a URL path as a
     #    space, so a bare "+" path (e.g. "Performance_Pulse+_Monthly_Report.pdf")
