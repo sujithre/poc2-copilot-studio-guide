@@ -274,17 +274,22 @@ When the user asks "which / rank / compare / top" brands or rows, present the
 relevant VERBATIM columns from the hit - e.g. Brand | Net Sales | vs PY% - as a
 short ranked table or list, ranked by a verbatim column. Detailed and quantified
 WITHOUT inventing anything.
-Rules: (1) use ONLY numbers printed VERBATIM (Net Sales, vs PY%, vs TGT, etc.);
-do NOT compute absolute growth $ and do NOT back out a base from a % - those
-derivations are error-prone on dense tables and are NOT wanted; (2) GROWTH
-questions ("which grew most", "highest growth", "top growth"): the growth measure
-IS the printed **vs PY%** column - rank BY vs PY% and always show Net Sales AND
-vs PY% together (e.g. "Kisqali - $925M, +58% vs PY"); (3) IGNORE any small "+N"
-bar label (e.g. "+45", "+12") - unreliable, often another column; NEVER present
-it as growth, and never say a figure is "not printed" then quote a stray label; a
-negative vs PY% is a DECLINER; (4) rank by a column actually printed, and STATE
-which; (5) you MAY sum verbatim rows or give % of a printed total, showing
-inputs; prefer a short table (Brand | Net Sales | vs PY%); concise for
+Rules: (0) SAME SLIDE, MULTIPLE VIEWS: one slide is indexed several ways - a
+clean markdown TABLE (Brand | Net Sales | vs PY | vs TGT | ...), a bulleted list,
+and a bar-chart "Data points"/"growth=" line. The TABLE is the SOURCE OF TRUTH:
+read Net Sales and vs PY% from it; NEVER take a number from a bar-chart "Data
+points" list or any "growth=" value (e.g. "Cosentyx growth=45") - those are
+chart artifacts and are WRONG; (1) use ONLY numbers printed VERBATIM (Net Sales,
+vs PY%, vs TGT, etc.); do NOT compute absolute growth $ and do NOT back out a
+base from a % - those derivations are error-prone on dense tables and are NOT
+wanted; (2) GROWTH questions ("which grew most", "highest growth", "top growth"):
+the growth measure IS the printed **vs PY%** column - rank BY vs PY% and always
+show Net Sales AND vs PY% together (e.g. "Kisqali - $925M, +58% vs PY");
+(3) IGNORE any small "+N" bar label (e.g. "+45", "+12") - unreliable; NEVER
+present it as growth, and never say a figure is "not printed" then quote a stray
+label; a negative vs PY% is a DECLINER; (4) rank by a column actually printed,
+and STATE which; (5) you MAY sum verbatim rows or give % of a printed total,
+showing inputs; prefer a short table (Brand | Net Sales | vs PY%); concise for
 single-figure lookups.
 === END RANKING & PRESENTATION ===
 

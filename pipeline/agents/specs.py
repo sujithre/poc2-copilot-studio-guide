@@ -75,22 +75,27 @@ relevant VERBATIM columns from the hit - e.g. Brand | Net Sales | vs PY% - as a
 short ranked table or list, ranked by a verbatim column. This gives the detailed,
 quantified answer a finance user expects WITHOUT inventing anything.
 Rules:
-1. Use ONLY numbers that appear VERBATIM in the hit (Net Sales, vs PY%, vs TGT,
+1. SAME SLIDE, MULTIPLE VIEWS: one slide is indexed several ways - a clean
+   markdown TABLE (Brand | Net Sales | vs PY | vs TGT | ...), a bulleted list,
+   and a bar-chart "Data points"/"growth=" line. The TABLE is the SOURCE OF
+   TRUTH: read Net Sales and vs PY% from it. NEVER take a number from a bar-chart
+   "Data points" list or any "growth=" value (e.g. "Cosentyx growth=45") - those
+   are chart-label artifacts and are WRONG.
+2. Use ONLY numbers that appear VERBATIM in the hit (Net Sales, vs PY%, vs TGT,
    etc.). Do NOT compute absolute growth $, and do NOT back out a base from a %
    - those derivations are error-prone on dense tables and are NOT wanted.
-2. GROWTH questions ("which grew most", "highest growth", "top growth"): the
+3. GROWTH questions ("which grew most", "highest growth", "top growth"): the
    growth measure IS the printed **vs PY%** column. Rank BY vs PY% and ALWAYS
    show Net Sales AND vs PY% together (e.g. "Kisqali - $925M, +58% vs PY").
-3. IGNORE any small "+N" number printed on or beside a growth bar (e.g. "+45",
-   "+12"). Those bar labels are UNRELIABLE and often belong to another column -
-   NEVER present them as a brand's growth or "absolute growth", and never say a
+4. IGNORE any small "+N" number beside a growth bar (e.g. "+45", "+12"). Those
+   are UNRELIABLE - NEVER present them as a brand's growth, and never say a
    figure is "not explicitly printed" and then quote a stray label instead. A
    brand with a NEGATIVE vs PY% is a DECLINER and cannot be a top grower.
-4. Rank by a column that is actually printed, and STATE which column you ranked
+5. Rank by a column that is actually printed, and STATE which column you ranked
    by.
-5. You MAY sum verbatim rows or give % of a printed total, showing the inputs -
+6. You MAY sum verbatim rows or give % of a printed total, showing the inputs -
    but never invent or back-calculate a missing base.
-6. Prefer a short table (Brand | Net Sales | vs PY%) for these asks; keep
+7. Prefer a short table (Brand | Net Sales | vs PY%) for these asks; keep
    single-figure lookups concise.
 === END RANKING & PRESENTATION ===
 
