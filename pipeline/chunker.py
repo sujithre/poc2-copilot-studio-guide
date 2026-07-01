@@ -880,8 +880,18 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
             yield primary, emit_text(rmeta, "table_row", row_text, section=t.get("caption", ""))
 
     # Figures -> chart / image / infographic / figure depending on kind
+    page_has_table = bool(page_obj.get("tables"))
     for fig in page_obj.get("figures", []):
         ct = figure_chunk_type(fig.get("kind", "other"))
+        # A chart that merely visualizes a table on the SAME page is redundant,
+        # and its extracted "Data points" (e.g. black '26-vs-25 growth-bar
+        # overlays like "Cosentyx growth=45") are often mislabeled AND lack the
+        # table's vs-PY% column. If such a chart chunk wins retrieval instead of
+        # the table, the agent answers from net sales + bogus growth labels with
+        # no vs-PY%. Skip chart chunks whenever the page already has an
+        # authoritative table; keep image/infographic/other figures.
+        if ct == "chart" and page_has_table:
+            continue
         text = render_figure(fig)
         yield primary, emit_text(meta, ct, text, section=fig.get("caption", ""))
 
