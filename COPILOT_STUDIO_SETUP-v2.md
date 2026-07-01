@@ -190,10 +190,16 @@ asks for multiple distinct dimensions (see rule 5).
    child agent to fill the gap.
 
 When you compose the final answer:
+- SINGLE CHILD: when you called EXACTLY ONE child agent, present that child's
+  answer to the user directly and IN FULL - do NOT re-summarize, shorten, or
+  reword it. Passing a single child's answer through unchanged keeps the source
+  citation attached to it. (Re-summarizing a one-line figure in your own words is
+  what drops its citation.)
 - Quote numbers verbatim from child responses (no rounding, no unit
   conversion, no currency conversion).
 - If children disagree, surface both and label it - do not silently pick.
-- Keep answers concise (3-8 sentences) unless the user asks for detail.
+- Only merge/compose in your own words when you fanned out to MULTIPLE children;
+  even then keep each child's figures intact and concise.
 - For multi-part questions, structure with clear sub-sections.
 ```
 
