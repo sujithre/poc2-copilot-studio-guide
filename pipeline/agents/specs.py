@@ -78,14 +78,19 @@ Rules:
 1. Use ONLY numbers that appear VERBATIM in the hit (Net Sales, vs PY%, vs TGT,
    etc.). Do NOT compute absolute growth $, and do NOT back out a base from a %
    - those derivations are error-prone on dense tables and are NOT wanted.
-2. Rank by a column that is actually printed (e.g. highest Net Sales, or highest
-   vs PY%), and STATE which column you ranked by.
-3. If the user asks for something the table does not print (e.g. absolute $
-   growth), say the table shows Net Sales and vs PY% but not absolute $ growth,
-   and present those columns instead - do not derive it.
-4. You MAY sum verbatim rows or give % of a printed total, showing the inputs -
+2. GROWTH questions ("which grew most", "highest growth", "top growth"): the
+   growth measure IS the printed **vs PY%** column. Rank BY vs PY% and ALWAYS
+   show Net Sales AND vs PY% together (e.g. "Kisqali - $925M, +58% vs PY").
+3. IGNORE any small "+N" number printed on or beside a growth bar (e.g. "+45",
+   "+12"). Those bar labels are UNRELIABLE and often belong to another column -
+   NEVER present them as a brand's growth or "absolute growth", and never say a
+   figure is "not explicitly printed" and then quote a stray label instead. A
+   brand with a NEGATIVE vs PY% is a DECLINER and cannot be a top grower.
+4. Rank by a column that is actually printed, and STATE which column you ranked
+   by.
+5. You MAY sum verbatim rows or give % of a printed total, showing the inputs -
    but never invent or back-calculate a missing base.
-5. Prefer a short table (Brand | Net Sales | vs PY%) for these asks; keep
+6. Prefer a short table (Brand | Net Sales | vs PY%) for these asks; keep
    single-figure lookups concise.
 === END RANKING & PRESENTATION ===
 
@@ -390,12 +395,15 @@ relevant VERBATIM metrics from the hit - e.g. Brand | NBRx | share % | vs PY - a
 a short ranked list or table, so you give a quantified, comparative answer
 WITHOUT inventing anything.
 Rules: (1) use ONLY numbers printed VERBATIM in the hit; do NOT back-calculate a
-base from a percentage or invent absolute growth; (2) rank by a column that is
-actually printed, and state which; (3) if the source does not print what was
-asked, say so and present what it DOES print; (4) you MAY sum verbatim rows or
-give % of a printed total, showing the inputs; (5) keep source units exact;
-prefer a short table for "which/rank/compare/top" asks, concise for single-metric
-lookups.
+base from a percentage or invent absolute growth; (2) GROWTH questions: the
+growth measure IS the printed **vs PY** column - rank by it and always show the
+metric AND vs PY together; IGNORE any small "+N" bar label (unreliable, may
+belong to another column) and never present it as growth; a negative vs PY is a
+decliner; (3) rank by a column actually printed, and state which; (4) if the
+source does not print what was asked, say so and present what it DOES print;
+(5) you MAY sum verbatim rows or give % of a printed total, showing the inputs;
+keep source units exact; short table for "which/rank/compare/top" asks, concise
+for single-metric lookups.
 === END RANKING & PRESENTATION ===
 
 Your job: answer questions about brand performance metrics (NBRx, TRx, NRx,
