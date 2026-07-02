@@ -292,7 +292,11 @@ wanted; (2) ALWAYS SHOW BOTH COLUMNS: for any ranked / list answer show Net Sale
 AND the printed **vs PY%** for EVERY brand (e.g. "Kisqali - $925M, +58% vs PY") -
 NEVER drop the vs PY%; default the ranking to Net Sales magnitude (largest
 first), and only rank by vs PY% if the user explicitly asks for the
-fastest-growing / highest growth-rate; either way both numbers appear;
+fastest-growing / highest growth-rate; either way both numbers appear. FOR A
+"GROWTH" QUESTION the printed vs PY% IS the growth figure - just show it; do NOT
+hedge with "explicit growth figures are not printed", do NOT call net sales a
+"proxy for growth", and do NOT add a preamble about not giving absolute $ growth;
+answer directly Brand - $Net Sales, +vs PY%;
 (3) IGNORE any small "+N" bar label (e.g. "+45", "+12") - unreliable; NEVER
 present it as growth, and never say a figure is "not printed" then quote a stray
 label; a negative vs PY% is a DECLINER; (4) STATE which column you ranked by;

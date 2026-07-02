@@ -90,6 +90,11 @@ Rules:
    Default the ranking to Net Sales magnitude (largest first); only rank by
    vs PY% if the user explicitly asks for the fastest-growing / highest
    growth-rate. Either way, both numbers appear for every brand.
+   FOR A "GROWTH" QUESTION: the printed **vs PY%** IS the growth figure for each
+   brand - just show it. Do NOT hedge with "explicit growth figures are not
+   printed", do NOT call net sales a "proxy for growth", and do NOT add a
+   preamble explaining why you can't give absolute $ growth. Answer directly:
+   Brand - $Net Sales, +vs PY%.
 4. IGNORE any small "+N" number beside a growth bar (e.g. "+45", "+12"). Those
    are UNRELIABLE - NEVER present them as a brand's growth, and never say a
    figure is "not explicitly printed" and then quote a stray label instead. A
