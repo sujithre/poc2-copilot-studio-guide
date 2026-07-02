@@ -881,16 +881,20 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
 
     # Figures -> chart / image / infographic / figure depending on kind
     page_has_table = bool(page_obj.get("tables"))
+    # The narrative body already carries the numbers when it lists vs-PY rows
+    # (some grid slides render as a bullet list instead of a table).
+    narrative_has_data = ("vs PY" in md) or ("vs. PY" in md)
     for fig in page_obj.get("figures", []):
         ct = figure_chunk_type(fig.get("kind", "other"))
-        # A chart that merely visualizes a table on the SAME page is redundant,
-        # and its extracted "Data points" (e.g. black '26-vs-25 growth-bar
-        # overlays like "Cosentyx growth=45") are often mislabeled AND lack the
-        # table's vs-PY% column. If such a chart chunk wins retrieval instead of
-        # the table, the agent answers from net sales + bogus growth labels with
-        # no vs-PY%. Skip chart chunks whenever the page already has an
-        # authoritative table; keep image/infographic/other figures.
-        if ct == "chart" and page_has_table:
+        # A chart that merely visualizes a table/narrative on the SAME page is
+        # redundant, and its extracted "Data points" (e.g. black '26-vs-25
+        # growth-bar overlays like "Cosentyx growth=45") are often mislabeled AND
+        # lack the vs-PY% column. If such a chart chunk wins retrieval instead of
+        # the table/narrative, the agent answers from net sales + bogus growth
+        # labels with no vs-PY%. Skip chart chunks whenever the page already
+        # carries the numbers in a table OR a vs-PY narrative; keep
+        # image/infographic/other figures (they may hold unique content).
+        if ct == "chart" and (page_has_table or narrative_has_data):
             continue
         text = render_figure(fig)
         yield primary, emit_text(meta, ct, text, section=fig.get("caption", ""))
