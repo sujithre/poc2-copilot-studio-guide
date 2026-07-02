@@ -302,6 +302,18 @@ After clarification, proceed with the search.
 If the user's question is already specific (e.g. "Net Sales price effect
 for Leqvio Jan 2026"), do NOT ask - just answer.
 === END CLARIFICATION RULE ===
+
+=== SOURCE LINE (survives the multi-agent hop) ===
+End every substantive answer with ONE plain-text line naming the document(s)
+you actually quoted, formatted as markdown links:
+  Sources: [<title> (p.N)](<url>)
+For multiple sources, separate them with " | ". Pull <title> and <url> VERBATIM
+from the `title` and `url` (fallback `metadata_storage_path`) fields of the
+chunks you used - never invent or guess a URL. This is ordinary body text in
+your answer, NOT a citation marker like [1] or [doc1], so it is forwarded intact
+when the supervisor relays your answer to the user. Omit this line only when you
+returned "I do not have data on that".
+=== END SOURCE LINE ===
 """
 
 EXTERNAL_INSTRUCTIONS = """You are the FinSight US External Messages Agent.
@@ -394,6 +406,18 @@ Rules:
   prominent IR Notes talking points first (lead bullets / headline framing) as
   a short ranked list, then supplement with the Quarterly Update.
 - If the answer is not in this index, explicitly say so. Never fabricate.
+
+=== SOURCE LINE (survives the multi-agent hop) ===
+End every substantive answer with ONE plain-text line naming the document(s)
+you actually quoted, formatted as markdown links:
+  Sources: [<title> (p.N)](<url>)
+For multiple sources, separate them with " | ". Pull <title> and <url> VERBATIM
+from the `title` and `url` (fallback `metadata_storage_path`) fields of the
+chunks you used - never invent or guess a URL. This is ordinary body text in
+your answer, NOT a citation marker like [1] or [doc1], so it is forwarded intact
+when the supervisor relays your answer to the user. Omit this line only when you
+returned "I do not have data on that".
+=== END SOURCE LINE ===
 """
 
 PRODUCT_INSTRUCTIONS = """You are the FinSight US Product Strategy Agent.
@@ -512,6 +536,18 @@ If a `reporting_basis` input is provided ('months' or 'r3m'), use it directly
 as the period basis, state which basis you used, and do NOT ask the period
 question. Only ask when no basis is provided AND the request is vague.
 === END CLARIFY ===
+
+=== SOURCE LINE (survives the multi-agent hop) ===
+End every substantive answer with ONE plain-text line naming the document(s)
+you actually quoted, formatted as markdown links:
+  Sources: [<title> (p.N)](<url>)
+For multiple sources, separate them with " | ". Pull <title> and <url> VERBATIM
+from the `title` and `url` (fallback `metadata_storage_path`) fields of the
+chunks you used - never invent or guess a URL. This is ordinary body text in
+your answer, NOT a citation marker like [1] or [doc1], so it is forwarded intact
+when the supervisor relays your answer to the user. Omit this line only when you
+returned "I do not have data on that".
+=== END SOURCE LINE ===
 """
 
 META_INSTRUCTIONS = """You are the FinSight US Meta Agent.
@@ -530,6 +566,16 @@ user which specialist to ask:
   - $ figures              -> Financials Agent
   - guidance / IR messaging -> External Messages Agent
   - NBRx / TRx / strategy  -> Product Strategy Agent
+
+=== SOURCE LINE (survives the multi-agent hop) ===
+When you DO quote boilerplate, end with ONE plain-text line naming the
+document(s), formatted as markdown links:
+  Sources: [<title> (p.N)](<url>)
+Pull <title> and <url> VERBATIM from the `title` and `url` (fallback
+`metadata_storage_path`) fields of the chunks you used - never invent a URL.
+This is ordinary body text (NOT a citation marker like [1]) so it survives being
+relayed by the supervisor. Omit it when you decline or return no data.
+=== END SOURCE LINE ===
 """
 
 

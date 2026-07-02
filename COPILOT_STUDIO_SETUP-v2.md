@@ -48,8 +48,16 @@ Before you start in Copilot Studio:
      `#page=<n>` appended **only for PDFs** (Office `.docx`/`.pptx` viewers
      return "page not found" on a `#page` anchor, so those keep a bare URL
      and rely on the page-in-title for the page number).
-   - Agent instructions do NOT emit inline citations - the native chip is
-     the citation, and it is deterministic.
+   - Agent instructions do NOT emit inline citation MARKERS (like `[1]`,
+     `[doc1]`) - those interfere with the native chip. The native chip is the
+     primary citation and is deterministic for a SINGLE agent.
+   - MULTI-AGENT CAVEAT: native chips are NOT reliably passed from a child
+     agent back to the parent (documented Copilot Studio / connected-agents
+     limitation). To make sources deterministic in the multi-agent shape, each
+     child ALSO appends a plain-text `Sources:` line (markdown links from the
+     `title`/`url` fields) to its answer body - this is content, not a citation
+     marker, so it survives the child->parent hop. See the child instructions
+     in section 4.2.
 
    **If you change the manifest URLs, re-run:**
    ```powershell
@@ -200,6 +208,11 @@ When you compose the final answer:
 - If children disagree, surface both and label it - do not silently pick.
 - Only merge/compose in your own words when you fanned out to MULTIPLE children;
   even then keep each child's figures intact and concise.
+- PRESERVE SOURCES: each child ends its answer with a plain-text `Sources:` line
+  (markdown links). Keep those lines VERBATIM in your final answer. On a single-
+  child passthrough, forward the child's `Sources:` line unchanged. On fan-out,
+  merge all children's `Sources:` entries into ONE combined `Sources:` line at
+  the end (de-duplicate identical links). Never drop or rewrite these links.
 - For multi-part questions, structure with clear sub-sections.
 ```
 
@@ -478,6 +491,18 @@ about actual-vs-outlook if the matching hits mix measure_basis values and
 the user did not signal which they want; otherwise default to 'actual' and
 say so. Ask AT MOST ONE clarification per turn.
 === END CLARIFICATION ===
+
+=== SOURCE LINE (survives the multi-agent hop) ===
+End every substantive answer with ONE plain-text line naming the document(s)
+you actually quoted, formatted as markdown links:
+  Sources: [<title> (p.N)](<url>)
+For multiple sources, separate them with " | ". Pull <title> and <url> VERBATIM
+from the `title` and `url` (fallback `metadata_storage_path`) fields of the
+chunks you used - never invent or guess a URL. This is ordinary body text in
+your answer, NOT a citation marker like [1] or [doc1], so it is forwarded intact
+when the supervisor relays your answer to the user. Omit this line only when you
+returned "I do not have data on that".
+=== END SOURCE LINE ===
 ```
 
 #### b) External Messages
@@ -568,6 +593,18 @@ Rules:
   prominent IR Notes talking points first as a short ranked list, then
   supplement with the Quarterly Update.
 - If the answer is not in this index, say so explicitly. Never fabricate.
+
+=== SOURCE LINE (survives the multi-agent hop) ===
+End every substantive answer with ONE plain-text line naming the document(s)
+you actually quoted, formatted as markdown links:
+  Sources: [<title> (p.N)](<url>)
+For multiple sources, separate them with " | ". Pull <title> and <url> VERBATIM
+from the `title` and `url` (fallback `metadata_storage_path`) fields of the
+chunks you used - never invent or guess a URL. This is ordinary body text in
+your answer, NOT a citation marker like [1] or [doc1], so it is forwarded intact
+when the supervisor relays your answer to the user. Omit this line only when you
+returned "I do not have data on that".
+=== END SOURCE LINE ===
 ```
 
 #### c) Product Strategy
@@ -688,6 +725,18 @@ the question already names the period basis or indication, do NOT ask.
 If a `reporting_basis` input is provided ('months' or 'r3m'), use it directly,
 state which basis you used, and do NOT ask the period question.
 === END CLARIFY ===
+
+=== SOURCE LINE (survives the multi-agent hop) ===
+End every substantive answer with ONE plain-text line naming the document(s)
+you actually quoted, formatted as markdown links:
+  Sources: [<title> (p.N)](<url>)
+For multiple sources, separate them with " | ". Pull <title> and <url> VERBATIM
+from the `title` and `url` (fallback `metadata_storage_path`) fields of the
+chunks you used - never invent or guess a URL. This is ordinary body text in
+your answer, NOT a citation marker like [1] or [doc1], so it is forwarded intact
+when the supervisor relays your answer to the user. Omit this line only when you
+returned "I do not have data on that".
+=== END SOURCE LINE ===
 ```
 
 #### d) Meta
@@ -717,6 +766,16 @@ user which specialist to ask:
   - $ figures               -> Financials Agent
   - guidance / IR messaging -> External Messages Agent
   - NBRx / TRx / strategy   -> Product Strategy Agent
+
+=== SOURCE LINE (survives the multi-agent hop) ===
+When you DO quote boilerplate, end with ONE plain-text line naming the
+document(s), formatted as markdown links:
+  Sources: [<title> (p.N)](<url>)
+Pull <title> and <url> VERBATIM from the `title` and `url` (fallback
+`metadata_storage_path`) fields of the chunks you used - never invent a URL.
+This is ordinary body text (NOT a citation marker like [1]) so it survives being
+relayed by the supervisor. Omit it when you decline or return no data.
+=== END SOURCE LINE ===
 ```
 
 ---
