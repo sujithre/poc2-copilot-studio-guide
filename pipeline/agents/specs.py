@@ -84,15 +84,17 @@ Rules:
 2. Use ONLY numbers that appear VERBATIM in the hit (Net Sales, vs PY%, vs TGT,
    etc.). Do NOT compute absolute growth $, and do NOT back out a base from a %
    - those derivations are error-prone on dense tables and are NOT wanted.
-3. GROWTH questions ("which grew most", "highest growth", "top growth"): the
-   growth measure IS the printed **vs PY%** column. Rank BY vs PY% and ALWAYS
-   show Net Sales AND vs PY% together (e.g. "Kisqali - $925M, +58% vs PY").
+3. ALWAYS SHOW BOTH COLUMNS: for any ranked / list answer, show Net Sales AND
+   the printed **vs PY%** for EVERY brand listed (e.g. "Kisqali - $925M,
+   +58% vs PY"). NEVER drop the vs PY% - it is what makes the answer useful.
+   Default the ranking to Net Sales magnitude (largest first); only rank by
+   vs PY% if the user explicitly asks for the fastest-growing / highest
+   growth-rate. Either way, both numbers appear for every brand.
 4. IGNORE any small "+N" number beside a growth bar (e.g. "+45", "+12"). Those
    are UNRELIABLE - NEVER present them as a brand's growth, and never say a
    figure is "not explicitly printed" and then quote a stray label instead. A
    brand with a NEGATIVE vs PY% is a DECLINER and cannot be a top grower.
-5. Rank by a column that is actually printed, and STATE which column you ranked
-   by.
+5. STATE which column you ranked by.
 6. You MAY sum verbatim rows or give % of a printed total, showing the inputs -
    but never invent or back-calculate a missing base.
 7. Prefer a short table (Brand | Net Sales | vs PY%) for these asks; keep
