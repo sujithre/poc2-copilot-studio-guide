@@ -19,9 +19,14 @@
 # So this topic does NOT need to reconstruct page anchors (unlike the
 # SharePoint sample) - System.Response.Citations[].Url is already correct.
 #
+# FIELD NOTE: Copilot Studio's citation record exposes .Url, .Name and
+# .Text (per Microsoft's own sample). It does NOT expose .Title, so we
+# display .Name. If .Name shows a raw path, that is the file identity
+# the knowledge source returned.
+#
 # TRADEOFF (documented): swapping to a markdown footer replaces the
-# native chip with clickable markdown reference links. That is the
-# price of determinism and matches Microsoft's own sample.
+# native chip with clickable markdown links. That is the price of
+# determinism and matches Microsoft's own sample.
 #
 # LIMIT: if the orchestrator returns ZERO citations for a turn (common
 # for heavily-aggregated / reworded answers), there is nothing to
@@ -36,52 +41,51 @@ beginDialog:
   condition: =CountRows(System.Response.Citations) > 0
   actions:
     # 1) Build a deterministic markdown "Sources" footer from the
-    #    citations table. Each row -> [n]: <url> "<title>"
-    #    (reference-style markdown that renders as clickable links).
+    #    citations table. Each row -> "[n] [Name](Url)" (inline markdown
+    #    links render reliably in every channel; reference-style [n]:
+    #    definitions can be dropped when the body has no [n] markers).
     - kind: SetVariable
       id: setVariable_buildFooter
       variable: Topic.SourcesFooter
       value: |-
-        =With(
-            { Cites: System.Response.Citations },
-            Concat(
-                ForAll(
-                    Sequence(CountRows(Cites)),
-                    Value
-                ),
-                With(
-                    { rec: Index(Cites, Value) },
-                    "[" & Text(Value) & "]: " &
-                    Substitute(
-                        If(IsBlank(rec.Url), rec.Name, rec.Url),
-                        " ",
-                        "%20"
-                    ) &
-                    " " & """" &
-                    If(IsBlank(rec.Title), rec.Name, rec.Title) &
-                    """"
-                ),
-                Char(10)
-            )
+        =Concat(
+            ForAll(
+                Sequence(CountRows(System.Response.Citations)),
+                Value
+            ),
+            With(
+                { rec: Index(System.Response.Citations, Value) },
+                "[" & Text(Value) & "] [" &
+                Coalesce(rec.Name, rec.Url) &
+                "](" &
+                Substitute(Coalesce(rec.Url, rec.Name), " ", "%20") &
+                ")"
+            ),
+            Char(10)
         )
 
-    # 2) Send the model's answer text, strip any model-generated reference
-    #    block (starting at "[1]:"), then append our deterministic footer.
-    #    Teams renders native citations already, so we still append the
-    #    footer for a consistent, clickable Sources list in every channel.
+    # 2) Assemble the final message body in a variable (NOT inside the
+    #    message interpolation - nested quotes break Text mode parsing).
+    #    Strip any model-generated reference block (from "[1]:" onward),
+    #    then append our deterministic Sources footer.
+    - kind: SetVariable
+      id: setVariable_finalAnswer
+      variable: Topic.FinalAnswer
+      value: |-
+        =IfError(
+            Left(
+                System.Response.FormattedText,
+                Find("[1]:", System.Response.FormattedText) - 1
+            ),
+            System.Response.FormattedText
+        ) & Char(10) & Char(10) & "**Sources**" & Char(10) & Topic.SourcesFooter
+
+    # 3) Send our composed answer (simple interpolation, no quotes inside).
     - kind: SendActivity
       id: sendActivity_withSources
-      activity: |-
-        {With(
-            { refStart: Find("[1]:", System.Response.FormattedText) },
-            If(
-                IsError(refStart),
-                System.Response.FormattedText,
-                Left(System.Response.FormattedText, refStart - 1)
-            )
-        ) & Char(10) & Char(10) & "**Sources**" & Char(10) & Topic.SourcesFooter}
+      activity: "{Topic.FinalAnswer}"
 
-    # 3) Suppress the default response so ONLY our version is sent.
+    # 4) Suppress the default response so ONLY our version is sent.
     - kind: SetVariable
       id: setVariable_stopDefault
       variable: System.ContinueResponse
