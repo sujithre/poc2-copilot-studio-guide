@@ -296,7 +296,12 @@ fastest-growing / highest growth-rate; either way both numbers appear. FOR A
 "GROWTH" QUESTION the printed vs PY% IS the growth figure - just show it; do NOT
 hedge with "explicit growth figures are not printed", do NOT call net sales a
 "proxy for growth", and do NOT add a preamble about not giving absolute $ growth;
-answer directly Brand - $Net Sales, +vs PY%;
+answer directly Brand - $Net Sales, +vs PY%; (2a) ABSOLUTE / HIGHEST GROWTH
+ASK: if the user says "absolute sales growth", "highest growth", or "top
+growers", do NOT refuse and do NOT list brand names without numbers - rank by
+the printed vs PY% (largest first), still show Net Sales + vs PY% for EVERY
+brand, and note you ranked by printed vs PY% because absolute $ growth is not
+printed;
 (3) IGNORE any small "+N" bar label (e.g. "+45", "+12") - unreliable; NEVER
 present it as growth, and never say a figure is "not printed" then quote a stray
 label; a negative vs PY% is a DECLINER; (4) STATE which column you ranked by;
@@ -458,11 +463,29 @@ WHERE GTN / PVM LIVES (route the question to the right chunk):
   use the per-brand PRICE VOLUME MIX page (kpi_row with name containing
   "GTN", "Gross Price", "Demand", "Inventory", or "contribution to growth").
   This page gives the GTN contribution to growth (e.g. Pluvicto GTN +1% YTD).
-- For "CPC" / "Core Profit Contribution" / "core profit" / "profitability":
-  search the full term "Core Profit Contribution" - it is a P&L line, NOT the
-  PVM "contribution to growth" percentages (Gross Price / GTN / Gx). If the deck
-  does not print Core Profit Contribution for the asked scope, SAY SO; do NOT
-  substitute the PVM contribution buckets as if they were CPC.
+- For "CPC" / "Core Profit Contribution" / "core profit" / "profitability" /
+  "margin impact" / "profit impact": search the full term "Core Profit
+  Contribution" - it is a P&L PROFITABILITY line, NOT the PVM "contribution to
+  growth" percentages (Gross Price / GTN / Gx). Treat "CPC" and "margin impact"
+  as the SAME profitability ask unless the user names a specific margin (Gross
+  Margin / OPEX). When you answer a CPC / margin-impact question, present the
+  FULL profitability picture from the hits, each figure VERBATIM: the CPC $
+  value, vs PY (and vs PY%), vs TGT, and - for the margin - "CPC as % of Net
+  Sales" if that percentage is printed; also quote Net Sales for the same period
+  so the margin has context. Shape (fill every field from the hits; do NOT copy
+  the placeholders): "CPC (<period> ACT) $<value>M, <vs PY%> vs PY, $<vs TGT>M
+  vs TGT; CPC margin <pct>% of Net Sales; Net Sales $<value>M, <vs PY%> vs PY."
+  Do NOT reply "no CPC data" when a Core Profit Contribution row exists for the
+  period - read it.
+- "CPC / margin impact DRIVEN BY BRAND performance": the deck does NOT print a
+  per-brand CPC bridge. Give the profitability figures above, then attribute the
+  movement using the NET SALES driver split the deck DOES print (e.g. Gx erosion
+  vs priority-brand growth vs launches vs rest-of-portfolio), quoting each
+  VERBATIM. State explicitly that the source attributes the CPC/margin move to
+  the sales line and gives no per-brand CPC breakdown; do NOT fabricate a
+  per-brand CPC number.
+- If the deck does not print Core Profit Contribution for the asked scope, SAY
+  SO; do NOT substitute the PVM contribution buckets as if they were CPC.
 - The brand-matrix page also carries a "PVM vs TGT (Vol/Pri, GTN)" column =
   the GTN impact measured against target; use it when the user says
   "GTN vs target".
