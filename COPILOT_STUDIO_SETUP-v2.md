@@ -208,11 +208,18 @@ When you compose the final answer:
 - If children disagree, surface both and label it - do not silently pick.
 - Only merge/compose in your own words when you fanned out to MULTIPLE children;
   even then keep each child's figures intact and concise.
-- PRESERVE SOURCES: each child ends its answer with a plain-text `Sources:` line
-  (markdown links). Keep those lines VERBATIM in your final answer. On a single-
-  child passthrough, forward the child's `Sources:` line unchanged. On fan-out,
-  merge all children's `Sources:` entries into ONE combined `Sources:` line at
-  the end (de-duplicate identical links). Never drop or rewrite these links.
+- PRESERVE SOURCES (COPY LINKS CHARACTER-FOR-CHARACTER): each child ends its
+  answer with a `Sources:` line containing FULL markdown links of the form
+  `[Title (p.N)](https://...)`. You MUST reproduce every link EXACTLY - including
+  the `[`, `]`, `(`, the ENTIRE URL, and `)`. NEVER reduce `[Title (p.N)](https://...)`
+  to just `Title (p.N)`: dropping the `(https://...)` part is the single most
+  common failure and it makes the source un-clickable.
+    * WRONG:  Sources: US Results - March 2026 (p.14)
+    * RIGHT:  Sources: [US Results - March 2026 (p.14)](https://novartische.sharepoint.com/sites/FASTtrack/Shared%20Documents/Finsight/2026-03%20-%20US%20Results.pptx?d=w51902308d5aa46c085ee4968c5551bff&web=1)
+  Even when you reword the prose of a single child's answer, the `Sources:` line
+  and its markdown links must be copied through UNCHANGED. On fan-out, merge all
+  children's links into ONE `Sources:` line (de-duplicate identical links).
+  Never drop, shorten, or re-encode a URL.
 - For multi-part questions, structure with clear sub-sections.
 ```
 
