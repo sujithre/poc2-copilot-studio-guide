@@ -1,0 +1,85 @@
+# =====================================================================
+# DIAGNOSTIC ONLY - FinSight US citation count probe
+# =====================================================================
+# TEMPORARY topic to measure how many citations reach the PARENT agent
+# on each turn. Paste this in place of citation-swap.yml, Publish, ask a
+# few questions, and read the "Citations at parent: N" line.
+#
+# WHY: Microsoft documents that in multi-agent setups "citations might
+# not always be maintained when passing outputs back from an agent back
+# to a calling agent"
+#   https://learn.microsoft.com/microsoft-copilot-studio/authoring-add-other-agents#known-limitations
+# and for connected agents "it is currently not possible to guarantee
+# citations will be passed from connected agents ... results are subject
+# to variability"
+#   https://learn.microsoft.com/azure/foundry-classic/agents/how-to/connected-agents#limitations
+#
+# HOW TO READ IT:
+#   - "Citations at parent: 0"  on a turn  -> the child->parent handoff
+#     dropped them. No footer possible on that turn. Fix is architectural
+#     (reduce synthesis / single-child passthrough / different model).
+#   - "Citations at parent: N" (N>0) but no footer in citation-swap.yml
+#     -> rendering/Power Fx issue, we tune the formula.
+#
+# WHEN DONE: revert to citation-swap.yml (this probe overrides EVERY
+# response, so do not leave it published).
+# =====================================================================
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnGeneratedResponse
+  id: main
+  # NO condition on purpose - always run so we see the count every turn.
+  actions:
+    # How many citations actually reached the parent this turn?
+    - kind: SetVariable
+      id: setVariable_count
+      variable: Topic.CitationCount
+      value: =CountRows(System.Response.Citations)
+
+    # Render the list if any, else "(none)".
+    - kind: SetVariable
+      id: setVariable_buildFooter
+      variable: Topic.SourcesFooter
+      value: |-
+        =If(
+            Topic.CitationCount = 0,
+            "(none)",
+            Concat(
+                ForAll(
+                    Sequence(Topic.CitationCount),
+                    Value
+                ),
+                With(
+                    { rec: Index(System.Response.Citations, Value) },
+                    "[" & Text(Value) & "] [" &
+                    Coalesce(rec.Name, rec.Url) &
+                    "](" &
+                    Substitute(Coalesce(rec.Url, rec.Name), " ", "%20") &
+                    ")"
+                ),
+                Char(10)
+            )
+        )
+
+    # Assemble the debug output in a variable (avoids quote issues in the
+    # message interpolation).
+    - kind: SetVariable
+      id: setVariable_debugOut
+      variable: Topic.DebugOut
+      value: |-
+        =System.Response.FormattedText & Char(10) & Char(10) &
+         "--- DEBUG ---" & Char(10) &
+         "Citations at parent: " & Text(Topic.CitationCount) & Char(10) &
+         Topic.SourcesFooter
+
+    - kind: SendActivity
+      id: sendActivity_debug
+      activity: "{Topic.DebugOut}"
+
+    - kind: SetVariable
+      id: setVariable_stopDefault
+      variable: System.ContinueResponse
+      value: =false
+
+inputType: {}
+outputType: {}
