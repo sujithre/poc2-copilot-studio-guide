@@ -139,6 +139,16 @@ def _strip_transient_params(query: str) -> tuple[str, bool]:
     return "&".join(kept), removed
 
 
+def _query_has_key(query: str, key: str) -> bool:
+    """True if the query string contains a parameter whose exact key (case-
+    insensitive) matches ``key``. Used to detect a durable ``d=<driveItemId>``
+    resolver before we unwrap a SharePoint sharing-link prefix."""
+    if not query:
+        return False
+    k = key.lower()
+    return any(seg.split("=", 1)[0].lower() == k for seg in query.split("&"))
+
+
 def clean_doc_url(raw: str) -> str:
     if not raw:
         return raw
@@ -154,9 +164,20 @@ def clean_doc_url(raw: str) -> str:
     if had_transient and not is_wopi:
         fragment = ""
     # 2) Unwrap the "/:b:/r/" sharing-link prefix into the canonical "/..." path -
-    #    but NOT for WOPI links, whose badge is part of the durable webUrl.
+    #    but ONLY when a durable resolver survives. Office "copy link" URLs keep a
+    #    "d=<driveItemId>" query param after the session token is stripped, so the
+    #    unwrapped bare "/sites/..." path still opens the file. PDF "copy link"
+    #    URLs have NO "d=" - the "/:b:/r/" wrapper IS their only resolver - so
+    #    unwrapping them leaves a bare path that SharePoint redirects to the
+    #    library view (/Forms/AllItems.aspx) when the link is CLICKED (direct
+    #    address-bar navigation still resolves, which is why a pasted URL looks
+    #    fine). Keep the wrapper in that case. WOPI links are never unwrapped.
+    wrapper_kept = False
     if not is_wopi and _SP_SHARE_WRAPPER.match(path):
-        path = _SP_SHARE_WRAPPER.sub("/", path)
+        if _query_has_key(query, "d"):
+            path = _SP_SHARE_WRAPPER.sub("/", path)
+        else:
+            wrapper_kept = True
     # 3) For canonical SharePoint OFFICE file links, force open-in-browser (else
     #    they download). Skip PDFs (keep "#page=N") and WOPI links (already viewer).
     if is_sharepoint and not is_pdf and not is_wopi and not query and not _SP_SHARE_WRAPPER.match(path):
@@ -174,7 +195,10 @@ def clean_doc_url(raw: str) -> str:
     #    space, so a bare "+" path (e.g. "Performance_Pulse+_Monthly_Report.pdf")
     #    can resolve to the wrong/missing file and break the citation. Encode it to
     #    "%2B" so the link is unambiguous. Path only - never touch the query.
-    if is_sharepoint and "+" in path:
+    #    Skip this for links whose "/:b:/r/" wrapper we kept: those resolve
+    #    through the sharing service using the original literal-"+" path, exactly
+    #    as SharePoint's "copy link" produced it, so re-encoding could break them.
+    if is_sharepoint and "+" in path and not wrapper_kept:
         path = path.replace("+", "%2B")
     return urlunsplit(parts._replace(path=path, query=query, fragment=fragment))
 
