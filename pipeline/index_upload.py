@@ -44,9 +44,22 @@ def _to_recency_date(value: str) -> str | None:
 
 def chunk_to_doc(rec: dict, vector: list[float]) -> dict:
     """Map a chunk JSON record to the Azure Search field shape."""
+    # Embed a clickable SOURCE link INTO the content the generative model reads.
+    # Copilot Studio feeds the `chunk` field to the model but NOT the `url`
+    # metadata field (that only powers the native citation chip, which is lost
+    # across the multi-agent child->parent hop). Appending the link here lets
+    # each child agent emit a deterministic `Sources: [title](url)` line.
+    # NOTE: the embedding `vector` is computed upstream from the CLEAN `text`
+    # (see main()), so semantic ranking is unaffected; only keyword search sees
+    # the URL tokens - an acceptable, incremental cost since the already-
+    # searchable `title` field carries the same document-name words.
+    body = rec.get("text", "") or rec.get("title", "")
+    src_url = rec.get("url", "") or rec.get("source_uri", "")
+    if src_url:
+        body = f"{body}\n\nSOURCE: [{rec.get('title', '')}]({src_url})"
     return {
         "id": rec["id"],
-        "chunk": rec.get("text", "") or rec.get("title", ""),
+        "chunk": body,
         "vector": vector,
         # doc-level
         "doc_id": rec.get("doc_id", ""),

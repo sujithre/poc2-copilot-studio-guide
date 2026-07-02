@@ -493,15 +493,17 @@ say so. Ask AT MOST ONE clarification per turn.
 === END CLARIFICATION ===
 
 === SOURCE LINE (survives the multi-agent hop) ===
-End every substantive answer with ONE plain-text line naming the document(s)
-you actually quoted, formatted as markdown links:
-  Sources: [<title> (p.N)](<url>)
-For multiple sources, separate them with " | ". Pull <title> and <url> VERBATIM
-from the `title` and `url` (fallback `metadata_storage_path`) fields of the
-chunks you used - never invent or guess a URL. This is ordinary body text in
-your answer, NOT a citation marker like [1] or [doc1], so it is forwarded intact
-when the supervisor relays your answer to the user. Omit this line only when you
-returned "I do not have data on that".
+Each retrieved chunk ENDS with a line of the form:
+  SOURCE: [<title> (p.N)](<url>)
+End every substantive answer with ONE "Sources:" line that lists the SOURCE
+link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple
+sources separate them with " | ", e.g.:
+  Sources: [US Results - March 2026 (p.14)](https://...) | [IR Notes - Q4 2025 (p.2)](https://...)
+Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
+line - do not shorten, re-encode, or invent a URL. This is ordinary body text,
+NOT a citation marker like [1] or [doc1], so it is forwarded intact when the
+supervisor relays your answer. Omit this line only when you returned "I do not
+have data on that".
 === END SOURCE LINE ===
 ```
 
@@ -595,15 +597,17 @@ Rules:
 - If the answer is not in this index, say so explicitly. Never fabricate.
 
 === SOURCE LINE (survives the multi-agent hop) ===
-End every substantive answer with ONE plain-text line naming the document(s)
-you actually quoted, formatted as markdown links:
-  Sources: [<title> (p.N)](<url>)
-For multiple sources, separate them with " | ". Pull <title> and <url> VERBATIM
-from the `title` and `url` (fallback `metadata_storage_path`) fields of the
-chunks you used - never invent or guess a URL. This is ordinary body text in
-your answer, NOT a citation marker like [1] or [doc1], so it is forwarded intact
-when the supervisor relays your answer to the user. Omit this line only when you
-returned "I do not have data on that".
+Each retrieved chunk ENDS with a line of the form:
+  SOURCE: [<title> (p.N)](<url>)
+End every substantive answer with ONE "Sources:" line that lists the SOURCE
+link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple
+sources separate them with " | ", e.g.:
+  Sources: [US Results - March 2026 (p.14)](https://...) | [IR Notes - Q4 2025 (p.2)](https://...)
+Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
+line - do not shorten, re-encode, or invent a URL. This is ordinary body text,
+NOT a citation marker like [1] or [doc1], so it is forwarded intact when the
+supervisor relays your answer. Omit this line only when you returned "I do not
+have data on that".
 === END SOURCE LINE ===
 ```
 
@@ -727,15 +731,17 @@ state which basis you used, and do NOT ask the period question.
 === END CLARIFY ===
 
 === SOURCE LINE (survives the multi-agent hop) ===
-End every substantive answer with ONE plain-text line naming the document(s)
-you actually quoted, formatted as markdown links:
-  Sources: [<title> (p.N)](<url>)
-For multiple sources, separate them with " | ". Pull <title> and <url> VERBATIM
-from the `title` and `url` (fallback `metadata_storage_path`) fields of the
-chunks you used - never invent or guess a URL. This is ordinary body text in
-your answer, NOT a citation marker like [1] or [doc1], so it is forwarded intact
-when the supervisor relays your answer to the user. Omit this line only when you
-returned "I do not have data on that".
+Each retrieved chunk ENDS with a line of the form:
+  SOURCE: [<title> (p.N)](<url>)
+End every substantive answer with ONE "Sources:" line that lists the SOURCE
+link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple
+sources separate them with " | ", e.g.:
+  Sources: [US Results - March 2026 (p.14)](https://...) | [IR Notes - Q4 2025 (p.2)](https://...)
+Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
+line - do not shorten, re-encode, or invent a URL. This is ordinary body text,
+NOT a citation marker like [1] or [doc1], so it is forwarded intact when the
+supervisor relays your answer. Omit this line only when you returned "I do not
+have data on that".
 === END SOURCE LINE ===
 ```
 
@@ -768,13 +774,11 @@ user which specialist to ask:
   - NBRx / TRx / strategy   -> Product Strategy Agent
 
 === SOURCE LINE (survives the multi-agent hop) ===
-When you DO quote boilerplate, end with ONE plain-text line naming the
-document(s), formatted as markdown links:
-  Sources: [<title> (p.N)](<url>)
-Pull <title> and <url> VERBATIM from the `title` and `url` (fallback
-`metadata_storage_path`) fields of the chunks you used - never invent a URL.
-This is ordinary body text (NOT a citation marker like [1]) so it survives being
-relayed by the supervisor. Omit it when you decline or return no data.
+Each retrieved chunk ENDS with a line of the form: SOURCE: [<title> (p.N)](<url>).
+When you DO quote boilerplate, end with ONE "Sources:" line listing the SOURCE
+link(s) of the chunk(s) you used, copied VERBATIM (do not re-encode or invent a
+URL). This is ordinary body text (NOT a citation marker like [1]) so it survives
+being relayed by the supervisor. Omit it when you decline or return no data.
 === END SOURCE LINE ===
 ```
 
