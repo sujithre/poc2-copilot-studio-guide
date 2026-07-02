@@ -210,16 +210,21 @@ When you compose the final answer:
   even then keep each child's figures intact and concise.
 - PRESERVE SOURCES (COPY LINKS CHARACTER-FOR-CHARACTER): each child ends its
   answer with a `Sources:` line containing FULL markdown links of the form
-  `[Title (p.N)](https://...)`. You MUST reproduce every link EXACTLY - including
-  the `[`, `]`, `(`, the ENTIRE URL, and `)`. NEVER reduce `[Title (p.N)](https://...)`
-  to just `Title (p.N)`: dropping the `(https://...)` part is the single most
-  common failure and it makes the source un-clickable.
-    * WRONG:  Sources: US Results - March 2026 (p.14)
-    * RIGHT:  Sources: [US Results - March 2026 (p.14)](https://novartische.sharepoint.com/sites/FASTtrack/Shared%20Documents/Finsight/2026-03%20-%20US%20Results.pptx?d=w51902308d5aa46c085ee4968c5551bff&web=1)
-  Even when you reword the prose of a single child's answer, the `Sources:` line
-  and its markdown links must be copied through UNCHANGED. On fan-out, merge all
-  children's links into ONE `Sources:` line (de-duplicate identical links).
-  Never drop, shorten, or re-encode a URL.
+  `[Title (p.N)](url)`. You MUST reproduce every link EXACTLY as the child gave
+  it - the `[`, `]`, `(`, the ENTIRE url, and `)`.
+    - NEVER reduce `[Title (p.N)](url)` to just `Title (p.N)` (dropping the url
+      makes it un-clickable).
+    - NEVER rebuild, re-encode, shorten, or "tidy" a url, and NEVER invent a
+      GUID or a filename.
+    - CRITICAL: the url FORMAT DIFFERS PER DOCUMENT - some end in
+      `...pdf#page=N`, some are `.../_layouts/15/Doc.aspx?sourcedoc=...`, some
+      are `...pptx?d=...&web=1`. Do NOT reshape one document's url into another
+      document's pattern (e.g. do NOT turn a Monthly Report PDF link into a
+      `...Report.pptx?d=...&web=1` link). Copy VERBATIM whatever that specific
+      child's `Sources:` line contains for that document.
+  Even when you reword the prose of a single child's answer, copy its `Sources:`
+  line and links through UNCHANGED. On fan-out, merge all children's links into
+  ONE `Sources:` line (de-duplicate identical links).
 - For multi-part questions, structure with clear sub-sections.
 ```
 
@@ -503,14 +508,16 @@ say so. Ask AT MOST ONE clarification per turn.
 Each retrieved chunk ENDS with a line of the form:
   SOURCE: [<title> (p.N)](<url>)
 End every substantive answer with ONE "Sources:" line that lists the SOURCE
-link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple
-sources separate them with " | ", e.g.:
-  Sources: [US Results - March 2026 (p.14)](https://...) | [IR Notes - Q4 2025 (p.2)](https://...)
+link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple sources
+separate them with " | ".
 Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
-line - do not shorten, re-encode, or invent a URL. This is ordinary body text,
-NOT a citation marker like [1] or [doc1], so it is forwarded intact when the
-supervisor relays your answer. Omit this line only when you returned "I do not
-have data on that".
+line - do NOT shorten, re-encode, or invent a URL, a GUID, or a filename. The
+url is already correct for THIS document and its format VARIES (it may end in
+...pdf#page=N, or be a .../Doc.aspx?sourcedoc=... link, or a ...pptx?d=...&web=1
+link); never reshape it into a different document's pattern. This is ordinary
+body text, NOT a citation marker like [1] or [doc1], so it is forwarded intact
+when the supervisor relays your answer. Omit this line only when you returned
+"I do not have data on that".
 === END SOURCE LINE ===
 ```
 
@@ -607,14 +614,16 @@ Rules:
 Each retrieved chunk ENDS with a line of the form:
   SOURCE: [<title> (p.N)](<url>)
 End every substantive answer with ONE "Sources:" line that lists the SOURCE
-link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple
-sources separate them with " | ", e.g.:
-  Sources: [US Results - March 2026 (p.14)](https://...) | [IR Notes - Q4 2025 (p.2)](https://...)
+link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple sources
+separate them with " | ".
 Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
-line - do not shorten, re-encode, or invent a URL. This is ordinary body text,
-NOT a citation marker like [1] or [doc1], so it is forwarded intact when the
-supervisor relays your answer. Omit this line only when you returned "I do not
-have data on that".
+line - do NOT shorten, re-encode, or invent a URL, a GUID, or a filename. The
+url is already correct for THIS document and its format VARIES (it may end in
+...pdf#page=N, or be a .../Doc.aspx?sourcedoc=... link, or a ...pptx?d=...&web=1
+link); never reshape it into a different document's pattern. This is ordinary
+body text, NOT a citation marker like [1] or [doc1], so it is forwarded intact
+when the supervisor relays your answer. Omit this line only when you returned
+"I do not have data on that".
 === END SOURCE LINE ===
 ```
 
@@ -741,14 +750,16 @@ state which basis you used, and do NOT ask the period question.
 Each retrieved chunk ENDS with a line of the form:
   SOURCE: [<title> (p.N)](<url>)
 End every substantive answer with ONE "Sources:" line that lists the SOURCE
-link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple
-sources separate them with " | ", e.g.:
-  Sources: [US Results - March 2026 (p.14)](https://...) | [IR Notes - Q4 2025 (p.2)](https://...)
+link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple sources
+separate them with " | ".
 Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
-line - do not shorten, re-encode, or invent a URL. This is ordinary body text,
-NOT a citation marker like [1] or [doc1], so it is forwarded intact when the
-supervisor relays your answer. Omit this line only when you returned "I do not
-have data on that".
+line - do NOT shorten, re-encode, or invent a URL, a GUID, or a filename. The
+url is already correct for THIS document and its format VARIES (it may end in
+...pdf#page=N, or be a .../Doc.aspx?sourcedoc=... link, or a ...pptx?d=...&web=1
+link); never reshape it into a different document's pattern. This is ordinary
+body text, NOT a citation marker like [1] or [doc1], so it is forwarded intact
+when the supervisor relays your answer. Omit this line only when you returned
+"I do not have data on that".
 === END SOURCE LINE ===
 ```
 
@@ -783,9 +794,11 @@ user which specialist to ask:
 === SOURCE LINE (survives the multi-agent hop) ===
 Each retrieved chunk ENDS with a line of the form: SOURCE: [<title> (p.N)](<url>).
 When you DO quote boilerplate, end with ONE "Sources:" line listing the SOURCE
-link(s) of the chunk(s) you used, copied VERBATIM (do not re-encode or invent a
-URL). This is ordinary body text (NOT a citation marker like [1]) so it survives
-being relayed by the supervisor. Omit it when you decline or return no data.
+link(s) of the chunk(s) you used, copied VERBATIM - do NOT re-encode, shorten,
+or invent a URL/GUID/filename, and never reshape one document's url into
+another's format. This is ordinary body text (NOT a citation marker like [1]) so
+it survives being relayed by the supervisor. Omit it when you decline or return
+no data.
 === END SOURCE LINE ===
 ```
 
