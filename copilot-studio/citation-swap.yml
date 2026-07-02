@@ -1,0 +1,91 @@
+# =====================================================================
+# FinSight US - Deterministic citation footer (OnGeneratedResponse)
+# =====================================================================
+# Adapted from microsoft/CopilotStudioSamples
+#   authoring/snippets/topics/citation-swap
+#
+# WHY: Under generative orchestration the native citation chip renders
+# non-deterministically ("comes once, then doesn't"). This topic fires
+# AFTER the model composes its answer but BEFORE it is sent, reads the
+# retrieved citations from System.Response.Citations, and renders a
+# deterministic "Sources" footer whenever citations exist - so the
+# citation is consistent every turn instead of relying on the model to
+# inline it.
+#
+# OUR INDICES already bake the deep link into the citation URL:
+#   - chunker.py sets `url` = sharepoint_url + '#page=N' (PDFs only)
+#   - index_upload.py maps `metadata_storage_path` = url
+#   - the `title` field already carries '(p.N)'
+# So this topic does NOT need to reconstruct page anchors (unlike the
+# SharePoint sample) - System.Response.Citations[].Url is already correct.
+#
+# TRADEOFF (documented): swapping to a markdown footer replaces the
+# native chip with clickable markdown reference links. That is the
+# price of determinism and matches Microsoft's own sample.
+#
+# LIMIT: if the orchestrator returns ZERO citations for a turn (common
+# for heavily-aggregated / reworded answers), there is nothing to
+# render - this makes citations CONSISTENT WHEN THEY EXIST; it cannot
+# invent a citation the orchestrator did not attach.
+# =====================================================================
+kind: AdaptiveDialog
+beginDialog:
+  kind: OnGeneratedResponse
+  id: main
+  # Only run when the orchestrator actually attached one or more citations.
+  condition: =CountRows(System.Response.Citations) > 0
+  actions:
+    # 1) Build a deterministic markdown "Sources" footer from the
+    #    citations table. Each row -> [n]: <url> "<title>"
+    #    (reference-style markdown that renders as clickable links).
+    - kind: SetVariable
+      id: setVariable_buildFooter
+      variable: Topic.SourcesFooter
+      value: |-
+        =With(
+            { Cites: System.Response.Citations },
+            Concat(
+                ForAll(
+                    Sequence(CountRows(Cites)),
+                    Value
+                ),
+                With(
+                    { rec: Index(Cites, Value) },
+                    "[" & Text(Value) & "]: " &
+                    Substitute(
+                        If(IsBlank(rec.Url), rec.Name, rec.Url),
+                        " ",
+                        "%20"
+                    ) &
+                    " " & """" &
+                    If(IsBlank(rec.Title), rec.Name, rec.Title) &
+                    """"
+                ),
+                Char(10)
+            )
+        )
+
+    # 2) Send the model's answer text, strip any model-generated reference
+    #    block (starting at "[1]:"), then append our deterministic footer.
+    #    Teams renders native citations already, so we still append the
+    #    footer for a consistent, clickable Sources list in every channel.
+    - kind: SendActivity
+      id: sendActivity_withSources
+      activity: |-
+        {With(
+            { refStart: Find("[1]:", System.Response.FormattedText) },
+            If(
+                IsError(refStart),
+                System.Response.FormattedText,
+                Left(System.Response.FormattedText, refStart - 1)
+            )
+        ) & Char(10) & Char(10) & "**Sources**" & Char(10) & Topic.SourcesFooter}
+
+    # 3) Suppress the default response so ONLY our version is sent.
+    - kind: SetVariable
+      id: setVariable_stopDefault
+      variable: System.ContinueResponse
+      value: =false
+
+inputType: {}
+outputType: {}
