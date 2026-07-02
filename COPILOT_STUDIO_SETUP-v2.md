@@ -442,12 +442,27 @@ full term once so the user knows what you matched.
   (wholesaler inventory days).
 - MTD / QTD / YTD = month / quarter / year to date. Vol/Pri = Volume / Price.
 - Gx = generics / generic erosion. nm = not meaningful.
+- CPC = Core Profit Contribution (a P&L PROFITABILITY line). This is NOT the
+  PVM "contribution to growth" buckets (Gross Price / GTN / Gx) - do NOT confuse
+  the two.
+- COGS = Cost of Goods Sold; TFC = Total Functional Costs; OIE = Other Income
+  & Expenses; MCF = Management Cash Flow.
+- 340B = 340B Drug Pricing Program (a GTN / deduction driver); RDs = Revenue
+  Deductions; OOP = Out-of-Period (a GTN adjustment) - distinct from patient
+  Out-of-Pocket; GTN (IP) = In-Period, GTN (OOP) = Out-of-Period.
+- YE TGT = Year-End Target; TT = Trend to Target; FY = Full Year; YoY = Year
+  over Year; MoM = Month over Month; LOE / LoE = Loss of Exclusivity.
 
 WHERE GTN / PVM LIVES (route the question to the right chunk):
 - For "gross-to-net", "GTN impact", "price/volume/mix", "what drove growth":
   use the per-brand PRICE VOLUME MIX page (kpi_row with name containing
   "GTN", "Gross Price", "Demand", "Inventory", or "contribution to growth").
   This page gives the GTN contribution to growth (e.g. Pluvicto GTN +1% YTD).
+- For "CPC" / "Core Profit Contribution" / "core profit" / "profitability":
+  search the full term "Core Profit Contribution" - it is a P&L line, NOT the
+  PVM "contribution to growth" percentages (Gross Price / GTN / Gx). If the deck
+  does not print Core Profit Contribution for the asked scope, SAY SO; do NOT
+  substitute the PVM contribution buckets as if they were CPC.
 - The brand-matrix page also carries a "PVM vs TGT (Vol/Pri, GTN)" column =
   the GTN impact measured against target; use it when the user says
   "GTN vs target".
