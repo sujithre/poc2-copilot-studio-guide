@@ -302,22 +302,6 @@ After clarification, proceed with the search.
 If the user's question is already specific (e.g. "Net Sales price effect
 for Leqvio Jan 2026"), do NOT ask - just answer.
 === END CLARIFICATION RULE ===
-
-=== SOURCE LINE (survives the multi-agent hop) ===
-Each retrieved chunk ENDS with a line of the form:
-  SOURCE: [<title> (p.N)](<url>)
-End every substantive answer with ONE "Sources:" line that lists the SOURCE
-link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple sources
-separate them with " | ".
-Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
-line - do NOT shorten, re-encode, or invent a URL, a GUID, or a filename. The
-url is already correct for THIS document and its format VARIES (it may end in
-...pdf#page=N, or be a .../Doc.aspx?sourcedoc=... link, or a ...pptx?d=...&web=1
-link); never reshape it into a different document's pattern. This is ordinary
-body text, NOT a citation marker like [1] or [doc1], so it is forwarded intact
-when the supervisor relays your answer. Omit this line only when you returned
-"I do not have data on that".
-=== END SOURCE LINE ===
 """
 
 EXTERNAL_INSTRUCTIONS = """You are the FinSight US External Messages Agent.
@@ -410,22 +394,6 @@ Rules:
   prominent IR Notes talking points first (lead bullets / headline framing) as
   a short ranked list, then supplement with the Quarterly Update.
 - If the answer is not in this index, explicitly say so. Never fabricate.
-
-=== SOURCE LINE (survives the multi-agent hop) ===
-Each retrieved chunk ENDS with a line of the form:
-  SOURCE: [<title> (p.N)](<url>)
-End every substantive answer with ONE "Sources:" line that lists the SOURCE
-link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple sources
-separate them with " | ".
-Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
-line - do NOT shorten, re-encode, or invent a URL, a GUID, or a filename. The
-url is already correct for THIS document and its format VARIES (it may end in
-...pdf#page=N, or be a .../Doc.aspx?sourcedoc=... link, or a ...pptx?d=...&web=1
-link); never reshape it into a different document's pattern. This is ordinary
-body text, NOT a citation marker like [1] or [doc1], so it is forwarded intact
-when the supervisor relays your answer. Omit this line only when you returned
-"I do not have data on that".
-=== END SOURCE LINE ===
 """
 
 PRODUCT_INSTRUCTIONS = """You are the FinSight US Product Strategy Agent.
@@ -544,22 +512,6 @@ If a `reporting_basis` input is provided ('months' or 'r3m'), use it directly
 as the period basis, state which basis you used, and do NOT ask the period
 question. Only ask when no basis is provided AND the request is vague.
 === END CLARIFY ===
-
-=== SOURCE LINE (survives the multi-agent hop) ===
-Each retrieved chunk ENDS with a line of the form:
-  SOURCE: [<title> (p.N)](<url>)
-End every substantive answer with ONE "Sources:" line that lists the SOURCE
-link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple sources
-separate them with " | ".
-Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
-line - do NOT shorten, re-encode, or invent a URL, a GUID, or a filename. The
-url is already correct for THIS document and its format VARIES (it may end in
-...pdf#page=N, or be a .../Doc.aspx?sourcedoc=... link, or a ...pptx?d=...&web=1
-link); never reshape it into a different document's pattern. This is ordinary
-body text, NOT a citation marker like [1] or [doc1], so it is forwarded intact
-when the supervisor relays your answer. Omit this line only when you returned
-"I do not have data on that".
-=== END SOURCE LINE ===
 """
 
 META_INSTRUCTIONS = """You are the FinSight US Meta Agent.
@@ -578,16 +530,6 @@ user which specialist to ask:
   - $ figures              -> Financials Agent
   - guidance / IR messaging -> External Messages Agent
   - NBRx / TRx / strategy  -> Product Strategy Agent
-
-=== SOURCE LINE (survives the multi-agent hop) ===
-Each retrieved chunk ENDS with a line of the form: SOURCE: [<title> (p.N)](<url>).
-When you DO quote boilerplate, end with ONE "Sources:" line listing the SOURCE
-link(s) of the chunk(s) you used, copied VERBATIM - do NOT re-encode, shorten,
-or invent a URL/GUID/filename, and never reshape one document's url into
-another's format. This is ordinary body text (NOT a citation marker like [1]) so
-it survives being relayed by the supervisor. Omit it when you decline or return
-no data.
-=== END SOURCE LINE ===
 """
 
 

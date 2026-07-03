@@ -48,16 +48,8 @@ Before you start in Copilot Studio:
      `#page=<n>` appended **only for PDFs** (Office `.docx`/`.pptx` viewers
      return "page not found" on a `#page` anchor, so those keep a bare URL
      and rely on the page-in-title for the page number).
-   - Agent instructions do NOT emit inline citation MARKERS (like `[1]`,
-     `[doc1]`) - those interfere with the native chip. The native chip is the
-     primary citation and is deterministic for a SINGLE agent.
-   - MULTI-AGENT CAVEAT: native chips are NOT reliably passed from a child
-     agent back to the parent (documented Copilot Studio / connected-agents
-     limitation). To make sources deterministic in the multi-agent shape, each
-     child ALSO appends a plain-text `Sources:` line (markdown links from the
-     `title`/`url` fields) to its answer body - this is content, not a citation
-     marker, so it survives the child->parent hop. See the child instructions
-     in section 4.2.
+   - Agent instructions do NOT emit inline citations - the native chip is
+     the citation, and it is deterministic.
 
    **If you change the manifest URLs, re-run:**
    ```powershell
@@ -208,23 +200,6 @@ When you compose the final answer:
 - If children disagree, surface both and label it - do not silently pick.
 - Only merge/compose in your own words when you fanned out to MULTIPLE children;
   even then keep each child's figures intact and concise.
-- PRESERVE SOURCES (COPY LINKS CHARACTER-FOR-CHARACTER): each child ends its
-  answer with a `Sources:` line containing FULL markdown links of the form
-  `[Title (p.N)](url)`. You MUST reproduce every link EXACTLY as the child gave
-  it - the `[`, `]`, `(`, the ENTIRE url, and `)`.
-    - NEVER reduce `[Title (p.N)](url)` to just `Title (p.N)` (dropping the url
-      makes it un-clickable).
-    - NEVER rebuild, re-encode, shorten, or "tidy" a url, and NEVER invent a
-      GUID or a filename.
-    - CRITICAL: the url FORMAT DIFFERS PER DOCUMENT - some end in
-      `...pdf#page=N`, some are `.../_layouts/15/Doc.aspx?sourcedoc=...`, some
-      are `...pptx?d=...&web=1`. Do NOT reshape one document's url into another
-      document's pattern (e.g. do NOT turn a Monthly Report PDF link into a
-      `...Report.pptx?d=...&web=1` link). Copy VERBATIM whatever that specific
-      child's `Sources:` line contains for that document.
-  Even when you reword the prose of a single child's answer, copy its `Sources:`
-  line and links through UNCHANGED. On fan-out, merge all children's links into
-  ONE `Sources:` line (de-duplicate identical links).
 - For multi-part questions, structure with clear sub-sections.
 ```
 
@@ -503,22 +478,6 @@ about actual-vs-outlook if the matching hits mix measure_basis values and
 the user did not signal which they want; otherwise default to 'actual' and
 say so. Ask AT MOST ONE clarification per turn.
 === END CLARIFICATION ===
-
-=== SOURCE LINE (survives the multi-agent hop) ===
-Each retrieved chunk ENDS with a line of the form:
-  SOURCE: [<title> (p.N)](<url>)
-End every substantive answer with ONE "Sources:" line that lists the SOURCE
-link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple sources
-separate them with " | ".
-Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
-line - do NOT shorten, re-encode, or invent a URL, a GUID, or a filename. The
-url is already correct for THIS document and its format VARIES (it may end in
-...pdf#page=N, or be a .../Doc.aspx?sourcedoc=... link, or a ...pptx?d=...&web=1
-link); never reshape it into a different document's pattern. This is ordinary
-body text, NOT a citation marker like [1] or [doc1], so it is forwarded intact
-when the supervisor relays your answer. Omit this line only when you returned
-"I do not have data on that".
-=== END SOURCE LINE ===
 ```
 
 #### b) External Messages
@@ -609,22 +568,6 @@ Rules:
   prominent IR Notes talking points first as a short ranked list, then
   supplement with the Quarterly Update.
 - If the answer is not in this index, say so explicitly. Never fabricate.
-
-=== SOURCE LINE (survives the multi-agent hop) ===
-Each retrieved chunk ENDS with a line of the form:
-  SOURCE: [<title> (p.N)](<url>)
-End every substantive answer with ONE "Sources:" line that lists the SOURCE
-link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple sources
-separate them with " | ".
-Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
-line - do NOT shorten, re-encode, or invent a URL, a GUID, or a filename. The
-url is already correct for THIS document and its format VARIES (it may end in
-...pdf#page=N, or be a .../Doc.aspx?sourcedoc=... link, or a ...pptx?d=...&web=1
-link); never reshape it into a different document's pattern. This is ordinary
-body text, NOT a citation marker like [1] or [doc1], so it is forwarded intact
-when the supervisor relays your answer. Omit this line only when you returned
-"I do not have data on that".
-=== END SOURCE LINE ===
 ```
 
 #### c) Product Strategy
@@ -745,22 +688,6 @@ the question already names the period basis or indication, do NOT ask.
 If a `reporting_basis` input is provided ('months' or 'r3m'), use it directly,
 state which basis you used, and do NOT ask the period question.
 === END CLARIFY ===
-
-=== SOURCE LINE (survives the multi-agent hop) ===
-Each retrieved chunk ENDS with a line of the form:
-  SOURCE: [<title> (p.N)](<url>)
-End every substantive answer with ONE "Sources:" line that lists the SOURCE
-link(s) of the chunk(s) you actually used, copied VERBATIM. For multiple sources
-separate them with " | ".
-Copy each bracketed markdown link EXACTLY as it appears in that chunk's SOURCE
-line - do NOT shorten, re-encode, or invent a URL, a GUID, or a filename. The
-url is already correct for THIS document and its format VARIES (it may end in
-...pdf#page=N, or be a .../Doc.aspx?sourcedoc=... link, or a ...pptx?d=...&web=1
-link); never reshape it into a different document's pattern. This is ordinary
-body text, NOT a citation marker like [1] or [doc1], so it is forwarded intact
-when the supervisor relays your answer. Omit this line only when you returned
-"I do not have data on that".
-=== END SOURCE LINE ===
 ```
 
 #### d) Meta
@@ -790,16 +717,6 @@ user which specialist to ask:
   - $ figures               -> Financials Agent
   - guidance / IR messaging -> External Messages Agent
   - NBRx / TRx / strategy   -> Product Strategy Agent
-
-=== SOURCE LINE (survives the multi-agent hop) ===
-Each retrieved chunk ENDS with a line of the form: SOURCE: [<title> (p.N)](<url>).
-When you DO quote boilerplate, end with ONE "Sources:" line listing the SOURCE
-link(s) of the chunk(s) you used, copied VERBATIM - do NOT re-encode, shorten,
-or invent a URL/GUID/filename, and never reshape one document's url into
-another's format. This is ordinary body text (NOT a citation marker like [1]) so
-it survives being relayed by the supervisor. Omit it when you decline or return
-no data.
-=== END SOURCE LINE ===
 ```
 
 ---
