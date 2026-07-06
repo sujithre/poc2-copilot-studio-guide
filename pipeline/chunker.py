@@ -816,15 +816,61 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
     }
 
 
+# Loud, human-language period-scope banners. Prepended to FINANCIAL slide chunks
+# so retrieval can separate the otherwise near-identical single-month vs
+# year-to-date "Net Sales by Product" slides: they differ by only one header word
+# ("March" vs "March YTD"), so ~95% of each chunk's text is identical and the
+# reranker ties (observed rerank 2.728 vs 2.723) and can return the WRONG twin
+# (a "month" question answered from the YTD table, or vice-versa). Each banner is
+# kept FREE of the other scope's tokens (the month banner has no year/ytd/quarter
+# words, and vice-versa) because a search engine has no NOT - a shared token would
+# just pull the wrong twin UP the ranking.
+_SCOPE_BANNERS = {
+    "month":     "SINGLE-MONTH figures - one calendar month only (MTD).",
+    "ytd":       "YEAR-TO-DATE figures - cumulative YTD through the quarter.",
+    "quarter":   "QUARTER figures - quarter-to-date (QTD).",
+    "half":      "HALF-YEAR figures - H1 or H2.",
+    "full_year": "FULL-YEAR OUTLOOK figures - FY / Latest Outlook.",
+}
+
+
+def _scope_banner(meta: dict) -> str:
+    """Return the period-scope banner for a chunk, or '' when it does not apply.
+
+    Gated to financial slides (page_kind 'slide_financials'); every other index
+    is untouched. Scope comes from the chunk's OWN period_scope, falling back to
+    an inference from its normalized fiscal_period (YYYY-MM -> month,
+    Qn_YYYY -> ytd, Hn_YYYY -> half, FY_YYYY -> full_year).
+    """
+    if not (meta.get("page_kind") or "").startswith("slide_financials"):
+        return ""
+    scope = (meta.get("period_scope") or "").strip().lower()
+    if scope not in _SCOPE_BANNERS:
+        fp = (meta.get("fiscal_period") or "").strip()
+        if re.match(r"^\d{4}-\d{2}$", fp):
+            scope = "month"
+        elif re.match(r"^Q[1-4]_\d{4}$", fp):
+            scope = "ytd"
+        elif re.match(r"^H[12]_\d{4}$", fp):
+            scope = "half"
+        elif re.match(r"^FY_\d{4}$", fp):
+            scope = "full_year"
+    return _SCOPE_BANNERS.get(scope, "")
+
+
 def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
               section_path: list[str] | None = None) -> dict:
+    # id is derived from the ORIGINAL text so prepending the scope banner never
+    # changes chunk ids - re-upload updates the row in place (no orphaned twins).
     cid = stable_id(meta["doc_id"], str(meta["page"]), chunk_type, section, text[:80])
+    banner = _scope_banner(meta)
+    stored_text = f"{banner}\n\n{text}" if banner else text
     out = {
         "id": cid,
         "chunk_type": chunk_type,
         "section": section,
         "section_path": section_path if section_path is not None else ([section] if section else []),
-        "text": text,
+        "text": stored_text,
         **meta,
     }
     # Authority precedence. External-messaging docs (IR Notes / Quarterly Update)
