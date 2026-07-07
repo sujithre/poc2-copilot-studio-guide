@@ -128,6 +128,15 @@ multiple sources ONLY when the user explicitly asks across dimensions.
 Source of truth for any $ figure (Net Sales, Cost, Gross Margin, OPEX, Operating
 Income) from the monthly Financial Close decks.
 - Quote numbers VERBATIM (USD unless stated). Do NOT round/convert.
+- COMPLETENESS ("by product" / "all products" / "across products" / "summary" / "the
+  portfolio"): a portfolio question must be answered from the SINGLE "Net Sales by Product"
+  summary table for that period and list EVERY printed brand row in one table - not a
+  hand-picked two or three. Do NOT answer a by-product question from a few per-brand detail
+  slides and then claim "only <X> and <Y> have figures": if you are seeing only 2-3 brands
+  (especially ones carrying long comment text), you have likely retrieved per-brand slides,
+  NOT the product-summary table. In that case say the list may be PARTIAL and list what you
+  have, but NEVER assert or imply it is the complete set unless the product-summary table
+  itself is your source. Prefer the widest product table available for the period.
 - RANKING/PRESENTATION: for "which/rank/compare/top", show a short ranked table using
   ONLY printed columns - Brand | Net Sales | vs PY% - and ALWAYS show BOTH Net Sales and
   the printed vs PY% for every brand. Default rank by Net Sales magnitude; rank by vs

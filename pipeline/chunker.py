@@ -858,13 +858,40 @@ def _scope_banner(meta: dict) -> str:
     return _SCOPE_BANNERS.get(scope, "")
 
 
+# Aggregate header for the WHOLE-TABLE financial chunk (chunk_type 'table'), so a
+# portfolio-wide question ("net sales by product", "all brands", "summary across
+# products", "the full list", "every product") retrieves the ONE chunk that holds
+# every brand row together, instead of a random handful of per-brand 'table_row'
+# chunks (top-K retrieval otherwise returns 2-3 rows and the model wrongly reports
+# "only <X> and <Y> have figures"). Kept scope-agnostic (no month/ytd/quarter
+# words) so it is safe on both the single-month and YTD twins, and applied ONLY to
+# the whole-table chunk - per-row chunks stay lean for single-brand queries.
+_AGGREGATE_TABLE_HEADER = (
+    "ALL PRODUCTS - complete table with EVERY brand listed together: the full "
+    "list / entire portfolio / summary across all products, all brands by product "
+    "in one place. Use this for any 'by product', 'all brands', 'all products', "
+    "'everything', 'full list' or 'summary' question."
+)
+
+
+def _aggregate_header(meta: dict, chunk_type: str) -> str:
+    """Return the ALL-PRODUCTS header for a financial whole-table chunk, else ''."""
+    if chunk_type != "table":
+        return ""
+    if not (meta.get("page_kind") or "").startswith("slide_financials"):
+        return ""
+    return _AGGREGATE_TABLE_HEADER
+
+
 def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
               section_path: list[str] | None = None) -> dict:
     # id is derived from the ORIGINAL text so prepending the scope banner never
     # changes chunk ids - re-upload updates the row in place (no orphaned twins).
     cid = stable_id(meta["doc_id"], str(meta["page"]), chunk_type, section, text[:80])
     banner = _scope_banner(meta)
-    stored_text = f"{banner}\n\n{text}" if banner else text
+    agg = _aggregate_header(meta, chunk_type)
+    prefix = "\n\n".join(p for p in (banner, agg) if p)
+    stored_text = f"{prefix}\n\n{text}" if prefix else text
     out = {
         "id": cid,
         "chunk_type": chunk_type,
