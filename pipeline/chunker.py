@@ -907,6 +907,62 @@ def _aggregate_header(meta: dict, chunk_type: str) -> str:
     return _AGGREGATE_TABLE_HEADER
 
 
+# Human phrase per financial scope, for the natural-language "serving shadow"
+# chunk below.
+_SCOPE_PHRASE = {
+    "full_year": "full-year",
+    "ytd":       "year-to-date",
+    "quarter":   "quarter",
+    "month":     "single-month",
+    "half":      "half-year",
+}
+
+
+def _natural_kpi_sentence(meta: dict, kp: dict) -> str:
+    """A plain-English answer sentence for a financial KPI (e.g. "Kisqali
+    full-year Net sales outlook (Latest Outlook / Mar LO) for FY_2026: 4,198 USD
+    millions. US geography, USD."). Returns '' when the KPI has no value."""
+    value = str(kp.get("value", "") or "").strip()
+    if not value:
+        return ""
+    unit = str(kp.get("unit", "") or "").strip()
+    name = str(kp.get("name", "") or "figure").strip()
+    b = meta.get("brand")
+    brand = b[0] if isinstance(b, list) and b else (b if isinstance(b, str) else "")
+    scope = (kp.get("period_scope") or meta.get("period_scope") or "").strip().lower()
+    basis = (kp.get("measure_basis") or meta.get("measure_basis") or "").strip().lower()
+    period = str(kp.get("period") or meta.get("fiscal_period") or "").strip()
+    scope_phrase = _SCOPE_PHRASE.get(scope, "")
+    outlook = " outlook (Latest Outlook / Mar LO)" if basis == "outlook_lo" else ""
+    lead = " ".join(x for x in (brand, scope_phrase) if x)
+    period_txt = f" for {period}" if period else ""
+    val = f"{value} {unit}".strip()
+    return f"{lead} {name}{outlook}{period_txt}: {val}. US geography, USD.".strip()
+
+
+def _serving_shadow_kpi(page_meta: dict, kpi_meta: dict, kp: dict):
+    """Build an ADDITIONAL natural-language answer chunk for a financial KPI that
+    lives on a page NOT tagged 'slide_financials' - i.e. the brand-matrix
+    outlook / Latest-Outlook grids stored as page_kind 'table' (e.g. "FY
+    Corporate Mar LO by Brand", the Kisqali FY=4,198 slide). Copilot Studio's
+    knowledge connector surfaces natural slide text but does NOT serve those
+    dense matrix 'table' chunks, so full-year / outlook questions returned "no
+    information found" even though the figure is in the index. This shadow chunk
+    is tagged 'slide_financials' and written as a clean sentence, so it retrieves
+    like the p.7/13/14 chunks that already work. Returns an emit dict or None;
+    it is PURELY additive (existing chunks and Azure/smoke are unchanged)."""
+    if (page_meta.get("page_kind") or "").startswith("slide_financials"):
+        return None
+    if not _is_financial_slide(page_meta):
+        return None
+    sentence = _natural_kpi_sentence(kpi_meta, kp)
+    if not sentence:
+        return None
+    smeta = dict(kpi_meta)
+    smeta["page_kind"] = "slide_financials"
+    return emit_text(smeta, "kpi_row", sentence, section=kp.get("name", ""))
+
+
 def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
               section_path: list[str] | None = None) -> dict:
     # id is derived from the ORIGINAL text so prepending the scope banner never
@@ -1038,6 +1094,9 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
             text = f"[{combined}] {text}"
         text = _prefix_kpi_brand(kmeta, text)
         yield primary, emit_text(kmeta, "kpi_row", text, section=kp.get("name", ""))
+        shadow = _serving_shadow_kpi(meta, kmeta, kp)
+        if shadow is not None:
+            yield primary, shadow
 
 
 def render_figure(fig: dict) -> str:
@@ -1214,6 +1273,9 @@ def chunks_from_ir_page(doc: dict, page_obj: dict, brands: BrandRegistry,
         if _brand_cleared(meta, kmeta):
             continue
         yield primary, emit_text(kmeta, "kpi_row", _prefix_kpi_brand(kmeta, render_kpi(kp)), section=kp.get("name", ""))
+        shadow = _serving_shadow_kpi(meta, kmeta, kp)
+        if shadow is not None:
+            yield primary, shadow
 
 
 # ---------------------------------------------------------------------------
