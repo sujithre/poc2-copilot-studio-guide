@@ -833,16 +833,40 @@ _SCOPE_BANNERS = {
     "full_year": "FULL-YEAR OUTLOOK figures - FY / Latest Outlook.",
 }
 
+# The five financial period scopes. A chunk carrying any of these is financial
+# content (non-financial pages default period_scope to 'unknown'), so this set
+# safely widens the banner gate to financial tables that are NOT tagged
+# 'slide_financials' - notably the brand-matrix FY / Latest-Outlook slides
+# (page_kind 'table', page_role 'brand_matrix', e.g. "FY Corporate Mar LO by
+# Brand", period_scope=full_year) which otherwise got NO banner and ranked below
+# the YTD/month twins on "full year outlook" queries.
+_FINANCIAL_SCOPES = {"month", "ytd", "quarter", "half", "full_year"}
+
+
+def _is_financial_slide(meta: dict) -> bool:
+    """True for financial figure content that should carry scope banners.
+
+    Covers the standard 'slide_financials' pages AND any chunk whose OWN
+    period_scope is a real financial scope (which catches the brand-matrix FY /
+    outlook tables that are page_kind 'table'). Non-financial pages carry
+    period_scope 'unknown', so they are never matched here.
+    """
+    if (meta.get("page_kind") or "").startswith("slide_financials"):
+        return True
+    if (meta.get("period_scope") or "").strip().lower() in _FINANCIAL_SCOPES:
+        return True
+    return False
+
 
 def _scope_banner(meta: dict) -> str:
     """Return the period-scope banner for a chunk, or '' when it does not apply.
 
-    Gated to financial slides (page_kind 'slide_financials'); every other index
-    is untouched. Scope comes from the chunk's OWN period_scope, falling back to
+    Gated to financial slides (see _is_financial_slide); every other index is
+    untouched. Scope comes from the chunk's OWN period_scope, falling back to
     an inference from its normalized fiscal_period (YYYY-MM -> month,
     Qn_YYYY -> ytd, Hn_YYYY -> half, FY_YYYY -> full_year).
     """
-    if not (meta.get("page_kind") or "").startswith("slide_financials"):
+    if not _is_financial_slide(meta):
         return ""
     scope = (meta.get("period_scope") or "").strip().lower()
     if scope not in _SCOPE_BANNERS:
@@ -878,7 +902,7 @@ def _aggregate_header(meta: dict, chunk_type: str) -> str:
     """Return the ALL-PRODUCTS header for a financial whole-table chunk, else ''."""
     if chunk_type != "table":
         return ""
-    if not (meta.get("page_kind") or "").startswith("slide_financials"):
+    if not _is_financial_slide(meta):
         return ""
     return _AGGREGATE_TABLE_HEADER
 
