@@ -940,6 +940,54 @@ def _natural_kpi_sentence(meta: dict, kp: dict) -> str:
     return f"{lead} {name}{outlook}{period_txt}: {val}. US geography, USD.".strip()
 
 
+def _by_product_summary(meta: dict, t: dict) -> str:
+    """One natural-language chunk listing EVERY brand row of a financial
+    "Net Sales by Product" table with its Net Sales and vs PY, e.g.
+    "... Kisqali 925 (+58% vs PY); Cosentyx 770 (-6% vs PY); ...". Copilot
+    Studio feeds the model only its top few retrieved chunks, so a
+    portfolio/decliners question that lands on scattered per-brand rows drops
+    brands (e.g. Cosentyx) and wrongly says "all others growing". This single
+    chunk carries the WHOLE list in scannable prose so the model always has
+    every brand + sign. Returns '' when the table is not a Net-Sales-by-product
+    grid. Purely additive."""
+    cols = t.get("columns") or []
+    rows = t.get("rows") or []
+    if not cols or not rows:
+        return ""
+
+    def _find(pred) -> int:
+        for i, c in enumerate(cols):
+            if pred((str(c) or "").lower()):
+                return i
+        return -1
+
+    ns_i = _find(lambda c: "net sales" in c)
+    py_i = _find(lambda c: "vs py" in c or "vs. py" in c)
+    if ns_i < 0 or py_i < 0:
+        return ""
+    parts: list[str] = []
+    for r in rows:
+        if not r:
+            continue
+        brand = _row_brand(cols, r)
+        if not brand:
+            continue
+        ns = str(r[ns_i]).strip() if ns_i < len(r) else ""
+        py = str(r[py_i]).strip() if py_i < len(r) else ""
+        if not ns:
+            continue
+        parts.append(f"{brand} {ns}" + (f" ({py} vs PY)" if py else ""))
+    if len(parts) < 2:
+        return ""
+    scope_phrase = _SCOPE_PHRASE.get((meta.get("period_scope") or "").strip().lower(), "")
+    scope_txt = f"{scope_phrase} " if scope_phrase else ""
+    return (
+        f"Net sales by product - ALL brands with vs PY ({scope_txt}US, USD millions). "
+        f"Complete list of every brand, decliners and gainers (a negative vs PY is a "
+        f"decliner): " + "; ".join(parts) + "."
+    )
+
+
 def _serving_shadow_kpi(page_meta: dict, kpi_meta: dict, kp: dict):
     """Build an ADDITIONAL natural-language answer chunk for a financial KPI that
     lives on a page NOT tagged 'slide_financials' - i.e. the brand-matrix
@@ -1047,6 +1095,10 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
         whole = table_to_markdown(t)
         if whole.strip():
             yield primary, emit_text(meta, "table", whole, section=t.get("caption", ""))
+            if _is_financial_slide(meta):
+                summ = _by_product_summary(meta, t)
+                if summ:
+                    yield primary, emit_text(meta, "table", summ, section=t.get("caption", ""))
         cols = t.get("columns") or []
         for r in t.get("rows", []):
             if not r:
@@ -1255,6 +1307,10 @@ def chunks_from_ir_page(doc: dict, page_obj: dict, brands: BrandRegistry,
         whole = table_to_markdown(t)
         if whole.strip():
             yield primary, emit_text(meta, "table", whole, section=t.get("caption", ""))
+            if _is_financial_slide(meta):
+                summ = _by_product_summary(meta, t)
+                if summ:
+                    yield primary, emit_text(meta, "table", summ, section=t.get("caption", ""))
         cols = t.get("columns") or []
         for r in t.get("rows", []):
             if not r:
