@@ -961,11 +961,19 @@ def _by_product_summary(meta: dict, t: dict) -> str:
                 return i
         return -1
 
-    ns_i = _find(lambda c: "net sales" in c)
+    # Prefer a CURRENT net-sales column; skip prior-year base columns (e.g. the
+    # p.14 chart table's "2025 Net Sales") so the figure next to the vs PY is the
+    # current period, not last year's base. If only a PY-base column exists, skip
+    # this table entirely (it is a growth chart, redundant with the real grid).
+    ns_i = _find(lambda c: "net sales" in c and not any(y in c for y in ("2025", "2024", "2023", "prior")))
+    if ns_i < 0:
+        return ""
     py_i = _find(lambda c: "vs py" in c or "vs. py" in c)
-    if ns_i < 0 or py_i < 0:
+    if py_i < 0:
         return ""
     parts: list[str] = []
+    decliners: list[str] = []
+    gainers: list[str] = []
     for r in rows:
         if not r:
             continue
@@ -977,15 +985,25 @@ def _by_product_summary(meta: dict, t: dict) -> str:
         if not ns:
             continue
         parts.append(f"{brand} {ns}" + (f" ({py} vs PY)" if py else ""))
+        if py.startswith("-"):
+            decliners.append(f"{brand} {py}")
+        elif py and (py[0].isdigit() or py.startswith("+")):
+            gainers.append(f"{brand} {py}")
     if len(parts) < 2:
         return ""
     scope_phrase = _SCOPE_PHRASE.get((meta.get("period_scope") or "").strip().lower(), "")
     scope_txt = f"{scope_phrase} " if scope_phrase else ""
-    return (
+    out = (
         f"Net sales by product - ALL brands with vs PY ({scope_txt}US, USD millions). "
-        f"Complete list of every brand, decliners and gainers (a negative vs PY is a "
-        f"decliner): " + "; ".join(parts) + "."
+        f"Complete list of every brand: " + "; ".join(parts) + "."
     )
+    if decliners:
+        out += (" Declining brands / brands down vs prior year (negative vs PY): "
+                + ", ".join(decliners) + ".")
+    if gainers:
+        out += (" Growing brands / brands up vs prior year (positive vs PY): "
+                + ", ".join(gainers) + ".")
+    return out
 
 
 def _serving_shadow_kpi(page_meta: dict, kpi_meta: dict, kp: dict):
