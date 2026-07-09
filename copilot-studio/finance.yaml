@@ -1,0 +1,223 @@
+kind: AdaptiveDialog
+
+modelDescription: Use when the user asks for any US $ figure — net sales, cost, gross margin, OPEX, GTN,operating income, revenue, or growth/YoY in dollars.
+
+beginDialog:
+
+  kind: OnRecognizedIntent
+
+  id: main
+
+  intent: {}
+
+  actions:
+
+    - kind: SetVariable
+
+      id: setVariable_srcdF2
+
+      displayName: Set Originalq
+
+      variable: Topic.FinanceOriginalQ
+
+      value: =System.Activity.Text
+
+ 
+
+    - kind: ConditionGroup
+
+      id: conditionGroup_Hn6pYB
+
+      conditions:
+
+        - id: conditionItem_DwFFHz
+
+          condition: |-
+
+            =IsMatch(
+
+                Lower(Topic.FinanceOriginalQ),
+
+                "q1|q2|q3|q4|quarter|ytd|year to date|qtd|mtd|month|monthly|full year|outlook|half|h1|h2|january|february|march|april|june|july|august|september|october|november|december",
+
+                MatchOptions.Contains
+
+            )
+
+          actions:
+
+            - kind: SetVariable
+
+              id: setVariable_BoD0Xn
+
+              variable: Topic.Query
+
+              value: =Topic.FinanceOriginalQ
+
+ 
+
+            - kind: SearchAndSummarizeContent
+
+              id: 6W022d
+
+              autoSend: false
+
+              variable: Topic.FinanaceAnswer1
+
+              responseCaptureType: FullResponse
+
+              userInput: =Topic.Query
+
+              additionalInstructions: "You answer US financial questions ONLY from the retrieved Financial Results content (US monthly Financial Close decks) - the source of truth for $ figures: Net Sales, Cost, Gross Margin, OPEX, Operating Income [file://*//*across]\\*\\*across monthly (e.g. 2026‑03), year‑to‑date / quarter (e.g. Q1 2026 March YTD), and full‑year outlook (FY Latest Outlook / Mar LO) periods.\\*\\* GROUNDING: Quote numbers VERBATIM (USD). Never fabricate, compute, or estimate. If the retrieved content does not contain the figure, say \"I do not have that in the indexed financial results\" and stop. [file://*//*FULL%1eYEAR]\\*\\*FULL‑YEAR / OUTLOOK: For a full‑year question (FY, full‑year, outlook, Latest Outlook, Mar LO), the FY value from the \"FY … Latest Outlook / Mar LO by Brand\" table (measure_basis = outlook_lo, period_scope = full_year) IS the correct answer — report it and label it clearly as \"FY outlook (Latest Outlook / Mar LO)\". This is the ONE case where an outlook value is the answer; do NOT say \"not found\" when an FY outlook figure exists in the sources.\\*\\* RANKING (\"which brands / top / highest / growth\"): output a markdown table with EXACTLY these three columns: Brand | Net Sales ($m) | vs PY (%). The THIRD column is ALWAYS the printed vs-prior-year PERCENTAGE (a % value such as +58%) - NEVER an absolute $ growth number, and NEVER a column titled \"Growth (m)\".EveryrowMUSTshowBOTHtheNetSales_m_)\"._EveryrowMUSTshowBOTHtheNetSales_ value AND the vs PY %. Do NOT compute or display absolute growth.NEVERuseabar−chart\"Datapoints\"/\"growth=\"value(e.g.45,12)−thosearechart−labelARTIFACTSandareWRONG;readONLYthemarkdownTABLE′sNetSalesandvsPY_growth_._NEVERuseabar_−_chart_\"_Datapoints_\"/\"_growth_=\"_value_(_e_._g_.45,12)−_thosearechart_−_labelARTIFACTSandareWRONG_;_readONLYthemarkdownTABLE_′_sNetSalesandvsPY_ growth figure is not reliably printed. Rank by vs PY % when the user asks for highest/fastest growth; otherwise rank by Net Sales magnitude. NET SALES = the currency row (m/USDmillions)attheaskedscope+actual∗∗(or‘outlooklo‘forafull‑yearoutlookquestion)∗∗,fortheEXACTbrandasked−NOTaUS−total/aggregate,NOTaTarget,NOTavs−TGT/vs−PYvarianceline.Leadwiththe_m_/_USDmillions_)_attheaskedscope_+_actual_∗∗(_or_‘_outlooklo_‘_forafull_‑_yearoutlookquestion_)∗∗,_fortheEXACTbrandasked_−_NOTaUS_−_total_/_aggregate_,_NOTaTarget_,_NOTavs_−_TGT_/_vs_−_PYvarianceline_._Leadwiththe_ headline, then add vs PY% if asked. GLOSSARY: GTN=Gross-to-Net; PVM=Price Volume Mix; PY=Prior Year; TGT=Target; LO=Latest Outlook (a forecast - not a monthly _actual_, **but it IS the correct figure when the user asks for the full‑year / FY outlook**); CPC=Core Profit Contribution (a P&L profit line, NOT the PVM contribution buckets). Match the exact metric and unit; never give a % when asked for a (ora(_ora_ when asked for a %). Assume US geography and USD; state that assumption. Answer the user's question {Topic.Query}"
+
+              fileSearchDataSource:
+
+                searchFilesMode:
+
+                  kind: DoNotSearchFiles
+
+ 
+
+              knowledgeSources:
+
+                kind: SearchSpecificKnowledgeSources
+
+                knowledgeSources:
+
+                  - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_H2igSam_KOdvKH_SmGW4f
+
+ 
+
+              applyModelKnowledgeSetting: false
+
+ 
+
+            - kind: SendActivity
+
+              id: sendActivity_finCite1
+
+              activity:
+
+                text:
+
+                  - "{Topic.FinanaceAnswer1.Text.Content}"
+
+                citationEntities: =Topic.FinanaceAnswer1.Text.CitationSources
+
+ 
+
+      elseActions:
+
+        - kind: Question
+
+          id: question_NMYNCU
+
+          interruptionPolicy:
+
+            allowInterruption: true
+
+ 
+
+          variable: init:Topic.PeriodChoice
+
+          prompt: Which period - a single month, quarter , or full-year outlook?
+
+          entity:
+
+            kind: ClosedListEntityReference
+
+            entityId: cr1df_FinSightUSV2.entity.PeriodScope
+
+            selectedItems:
+
+              - dZ6HiZ
+
+              - 7TqbpS
+
+              - V8c9jl
+
+ 
+
+        - kind: SetVariable
+
+          id: setVariable_kaiBVS
+
+          variable: Topic.Query1
+
+          value: |-
+
+            =Topic.FinanceOriginalQ & " " &
+
+            If(
+
+                IsMatch(Lower(Topic.FinanceOriginalQ), "month|monthly|mtd|january|february|march|april|june|july|august|september|october|november|december", MatchOptions.Contains),
+
+                    "for the single month (MTD)",
+
+                IsMatch(Lower(Topic.FinanceOriginalQ), "ytd|year to date|qtd|q1|q2|q3|q4|quarter", MatchOptions.Contains),
+
+                    "year to date (YTD)",
+
+                IsMatch(Lower(Topic.FinanceOriginalQ), "full year|fy|outlook|annual|latest outlook", MatchOptions.Contains),
+
+                    "full year 2026 outlook",
+
+                ""
+
+            )
+
+ 
+
+        - kind: SearchAndSummarizeContent
+
+          id: 43VLVH
+
+          autoSend: false
+
+          variable: Topic.FinanaceAnswer2
+
+          userInput: =Topic.Query1
+
+          additionalInstructions: "You answer US financial questions ONLY from the retrieved Financial Results content (US monthly Financial Close decks) - the source of truth for $ figures: Net Sales, Cost, Gross Margin, OPEX, Operating Income [file://*//*across]\\*\\*across monthly (e.g. 2026‑03), year‑to‑date / quarter (e.g. Q1 2026 March YTD), and full‑year outlook (FY Latest Outlook / Mar LO) periods.\\*\\* GROUNDING: Quote numbers VERBATIM (USD). Never fabricate, compute, or estimate. If the retrieved content does not contain the figure, say \"I do not have that in the indexed financial results\" and stop. [file://*//*FULL%1eYEAR]\\*\\*FULL‑YEAR / OUTLOOK: For a full‑year question (FY, full‑year, outlook, Latest Outlook, Mar LO), the FY value from the \"FY … Latest Outlook / Mar LO by Brand\" table (`measure_basis = outlook_lo`, `period_scope = full_year`) IS the correct answer — report it and label it clearly as \"FY outlook (Latest Outlook / Mar LO)\". This is the ONE case where an outlook value is the answer; do NOT say \"not found\" when an FY outlook figure exists in the sources.\\*\\* RANKING (\"which brands / top / highest / growth\"): output a markdown table with EXACTLY these three columns: Brand | Net Sales ($m) | vs PY (%). The THIRD column is ALWAYS the printed vs-prior-year PERCENTAGE (a % value such as +58%) - NEVER an absolute $ growth number, and NEVER a column titled \"Growth (m)\".EveryrowMUSTshowBOTHtheNetSales_m_)\"._EveryrowMUSTshowBOTHtheNetSales_ value AND the vs PY %. Do NOT compute or display absolute growth.NEVERuseabar−chart\"Datapoints\"/\"growth=\"value(e.g.45,12)−thosearechart−labelARTIFACTSandareWRONG;readONLYthemarkdownTABLE′sNetSalesandvsPY_growth_._NEVERuseabar_−_chart_\"_Datapoints_\"/\"_growth_=\"_value_(_e_._g_.45,12)−_thosearechart_−_labelARTIFACTSandareWRONG_;_readONLYthemarkdownTABLE_′_sNetSalesandvsPY_ growth figure is not reliably printed. Rank by vs PY % when the user asks for highest/fastest growth; otherwise rank by Net Sales magnitude. NET SALES = the currency row (m/USDmillions)attheaskedscope+actual∗∗(or‘outlooklo‘forafull‑yearoutlookquestion)∗∗,fortheEXACTbrandasked−NOTaUS−total/aggregate,NOTaTarget,NOTavs−TGT/vs−PYvarianceline.Leadwiththe_m_/_USDmillions_)_attheaskedscope_+_actual_∗∗(_or_‘_outlooklo_‘_forafull_‑_yearoutlookquestion_)∗∗,_fortheEXACTbrandasked_−_NOTaUS_−_total_/_aggregate_,_NOTaTarget_,_NOTavs_−_TGT_/_vs_−_PYvarianceline_._Leadwiththe_ headline, then add vs PY% if asked. GLOSSARY: GTN=Gross-to-Net; PVM=Price Volume Mix; PY=Prior Year; TGT=Target; LO=Latest Outlook (a forecast - not a monthly _actual_, **but it IS the correct figure when the user asks for the full‑year / FY outlook**); CPC=Core Profit Contribution (a P&L profit line, NOT the PVM contribution buckets). Match the exact metric and unit; never give a % when asked for a (ora(_ora_ when asked for a %). Assume US geography and USD; state that assumption. Answer the user's question:{Topic.Query1}"
+
+          fileSearchDataSource:
+
+            searchFilesMode:
+
+              kind: DoNotSearchFiles
+
+ 
+
+          knowledgeSources:
+
+            kind: SearchSpecificKnowledgeSources
+
+            knowledgeSources:
+
+              - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_H2igSam_KOdvKH_SmGW4f
+
+ 
+
+          applyModelKnowledgeSetting: false
+
+          responseCaptureType: FullResponse
+
+ 
+
+        - kind: SendActivity
+
+          id: sendActivity_finCite2
+
+          activity:
+
+            text:
+
+              - "{Topic.FinanaceAnswer2.Text.Content}"
+
+            citationEntities: =Topic.FinanaceAnswer2.Text.CitationSources
+
+ 
+
+inputType: {}
+
+outputType: {}
