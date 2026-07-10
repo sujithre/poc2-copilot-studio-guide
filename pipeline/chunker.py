@@ -258,6 +258,37 @@ def _authority_boost(page_role: str, section: str = "") -> int:
     return _AUTHORITY_BY_ROLE.get(page_role, 0)
 
 
+# Period net-sales grids come in TWO near-identical twins that carry the SAME
+# brand Net Sales numbers (e.g. Kisqali 925, Cosentyx 770, Kesimpta 724) under
+# the SAME "<Month> YTD Net Sales" caption:
+#   (A) the PVM vs TGT / W-S SIT Days / "Comments vs TGT" operational grid, and
+#   (B) the "Contribution to growth % vs PY" grid (Market / Share / Inv /
+#       Gross Price / GTN / Gx buckets).
+# Both otherwise match _GRID_SECTION_RE and win top authority (3), so they TIE
+# in retrieval and the model mixes the two right-hand breakdowns. Grid (A) is the
+# keeper; grid (B) is demoted below it (still retrievable for the contribution-
+# to-growth buckets, but never out-ranks / ties (A) for plain Net Sales).
+_GROWTH_CONTRIB_RE = re.compile(r"contribution to growth", re.IGNORECASE)
+# Boost the demoted twin keeps: above 'standard' (0) so it is still findable for
+# its own contribution-to-growth questions, but below the keeper grid (3).
+_GRID_DEMOTE_BOOST = 1
+
+
+def _is_growth_contribution_twin(page_obj: dict) -> bool:
+    """True for the 'Contribution to growth % vs PY' net-sales twin (grid B).
+
+    Detected by the unique 'Contribution to growth' column / caption phrase so it
+    stays durable month-to-month (no page-number hard-coding). Harmless on every
+    other page - the phrase does not appear elsewhere."""
+    for t in page_obj.get("tables") or []:
+        if _GROWTH_CONTRIB_RE.search(str(t.get("caption") or "")):
+            return True
+        for c in t.get("columns") or []:
+            if _GROWTH_CONTRIB_RE.search(str(c)):
+                return True
+    return bool(_GROWTH_CONTRIB_RE.search(page_obj.get("markdown") or ""))
+
+
 # --- External-messages precedence (kept SEPARATE from the financial logic above
 # so the financial_results path is not disturbed). The user wants the IR Notes
 # message to surface FIRST and the Quarterly Update SECOND, every time. These
@@ -796,6 +827,10 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         # uses this magnitude to float them up. Keyed on page_role (content-
         # derived), so next month's deck inherits it with no page-number edits.
         "authority_boost": _authority_boost(page_obj.get("page_role") or "standard"),
+        # Private (stripped in emit_text, never written to the index): marks the
+        # "Contribution to growth" net-sales twin so emit_text can demote it
+        # below the authoritative PVM / W-S-SIT grid for the same period.
+        "_grid_demote": _is_growth_contribution_twin(page_obj),
         "has_comments": bool(page_obj.get("has_comments", False)),
         "therapeutic_area": ta,
         "brand": canonical_brands,
@@ -1046,6 +1081,9 @@ def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
         "text": stored_text,
         **meta,
     }
+    # Strip the private twin-demote flag so it never reaches the index (it is an
+    # internal signal only; capture its value first for the financial branch).
+    demote_grid = bool(out.pop("_grid_demote", False))
     # Authority precedence. External-messaging docs (IR Notes / Quarterly Update)
     # rank by SOURCE CLASS; product-strategy docs (Monthly / Weekly Performance)
     # rank by SOURCE CLASS too (Monthly > Weekly); all other docs keep the
@@ -1056,7 +1094,12 @@ def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
     elif doc_type in _PRODUCT_DOC_TYPES:
         out["authority_boost"] = _product_authority(doc_type)
     else:
-        out["authority_boost"] = _authority_boost(meta.get("page_role", "") or "standard", section)
+        boost = _authority_boost(meta.get("page_role", "") or "standard", section)
+        # Demote the "Contribution to growth" net-sales twin so it never ties or
+        # out-ranks the authoritative PVM / W-S-SIT grid for the same period.
+        if demote_grid and boost > _GRID_DEMOTE_BOOST:
+            boost = _GRID_DEMOTE_BOOST
+        out["authority_boost"] = boost
     return out
 
 
