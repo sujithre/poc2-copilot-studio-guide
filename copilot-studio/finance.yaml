@@ -89,16 +89,26 @@ beginDialog:
               id: question_offerQuarter
               interruptionPolicy:
                 allowInterruption: true
-              variable: Topic.WantOpposite
+              alwaysPrompt: true
+              variable: Topic.FollowupReply
               prompt: |-
-                Would you like the quarter (Q1 / March YTD) figure for the same brands too?
-              entity: BooleanPrebuiltEntity
+                Would you like the quarter (Q1 / March YTD) figure for the same brands too? Reply Yes or No - or just ask another question.
+              entity: StringPrebuiltEntity
             - kind: ConditionGroup
-              id: conditionGroup_wantQuarter
+              id: conditionGroup_followupQuarter
               conditions:
+                - id: cond_noQuarter
+                  condition: |-
+                    =Lower(Trim(Topic.FollowupReply)) in ["no","nope","nah","no thanks","not now","that's all","thats all","nothing","done","stop","i'm good","im good"]
+                  actions:
+                    - kind: SendActivity
+                      id: sendActivity_noQuarter
+                      activity:
+                        text:
+                          - Okay - let me know if you'd like another brand or period.
                 - id: cond_yesQuarter
                   condition: |-
-                    =Topic.WantOpposite
+                    =Lower(Trim(Topic.FollowupReply)) in ["yes","y","yeah","yep","yup","sure","ok","okay","please","yes please","go ahead","do it","absolutely","correct","quarter","ytd"]
                   actions:
                     - kind: SetVariable
                       id: setVariable_query2Quarter
@@ -117,6 +127,24 @@ beginDialog:
                         knowledgeSources:
                           - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_H2igSam_KOdvKH_SmGW4f
                       applyModelKnowledgeSetting: false
+              elseActions:
+                - kind: SetVariable
+                  id: setVariable_newQQuarter
+                  variable: Topic.Query3
+                  value: =Topic.FollowupReply & " (same brands and context as the previous answer)"
+                - kind: SearchAndSummarizeContent
+                  id: search_newQQuarter
+                  userInput: =Topic.Query3
+                  additionalInstructions: |-
+                    You answer US financial questions ONLY from the retrieved Financial Results content (US monthly Financial Close decks) - the source of truth for $ figures (Net Sales, Cost, Gross Margin, OPEX, Operating Income). GROUNDING: Quote numbers VERBATIM (USD). Never fabricate, compute, or estimate. If the retrieved content does not contain the figure, say "I do not have that in the indexed financial results" and stop. Keep the SAME format as the previous answer (rankings: Brand | Net Sales ($m) | vs PY (%), every row showing BOTH the Net Sales and the vs PY %). Assume US geography and USD. Do NOT add any follow-up offer about other periods. Answer the user's question:{Topic.Query3}
+                  fileSearchDataSource:
+                    searchFilesMode:
+                      kind: DoNotSearchFiles
+                  knowledgeSources:
+                    kind: SearchSpecificKnowledgeSources
+                    knowledgeSources:
+                      - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_H2igSam_KOdvKH_SmGW4f
+                  applyModelKnowledgeSetting: false
         - id: cond_askedYtd
           condition: |-
             =Topic.AskedScope = "ytd"
@@ -125,16 +153,26 @@ beginDialog:
               id: question_offerMonth
               interruptionPolicy:
                 allowInterruption: true
-              variable: Topic.WantOpposite
+              alwaysPrompt: true
+              variable: Topic.FollowupReply
               prompt: |-
-                Would you like the single-month (MTD) figure for the same brands too?
-              entity: BooleanPrebuiltEntity
+                Would you like the single-month (MTD) figure for the same brands too? Reply Yes or No - or just ask another question.
+              entity: StringPrebuiltEntity
             - kind: ConditionGroup
-              id: conditionGroup_wantMonth
+              id: conditionGroup_followupMonth
               conditions:
+                - id: cond_noMonth
+                  condition: |-
+                    =Lower(Trim(Topic.FollowupReply)) in ["no","nope","nah","no thanks","not now","that's all","thats all","nothing","done","stop","i'm good","im good"]
+                  actions:
+                    - kind: SendActivity
+                      id: sendActivity_noMonth
+                      activity:
+                        text:
+                          - Okay - let me know if you'd like another brand or period.
                 - id: cond_yesMonth
                   condition: |-
-                    =Topic.WantOpposite
+                    =Lower(Trim(Topic.FollowupReply)) in ["yes","y","yeah","yep","yup","sure","ok","okay","please","yes please","go ahead","do it","absolutely","correct","month","monthly","mtd"]
                   actions:
                     - kind: SetVariable
                       id: setVariable_query2Month
@@ -153,6 +191,24 @@ beginDialog:
                         knowledgeSources:
                           - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_H2igSam_KOdvKH_SmGW4f
                       applyModelKnowledgeSetting: false
+              elseActions:
+                - kind: SetVariable
+                  id: setVariable_newQMonth
+                  variable: Topic.Query3
+                  value: =Topic.FollowupReply & " (same brands and context as the previous answer)"
+                - kind: SearchAndSummarizeContent
+                  id: search_newQMonth
+                  userInput: =Topic.Query3
+                  additionalInstructions: |-
+                    You answer US financial questions ONLY from the retrieved Financial Results content (US monthly Financial Close decks) - the source of truth for $ figures (Net Sales, Cost, Gross Margin, OPEX, Operating Income). GROUNDING: Quote numbers VERBATIM (USD). Never fabricate, compute, or estimate. If the retrieved content does not contain the figure, say "I do not have that in the indexed financial results" and stop. Keep the SAME format as the previous answer (rankings: Brand | Net Sales ($m) | vs PY (%), every row showing BOTH the Net Sales and the vs PY %). Assume US geography and USD. Do NOT add any follow-up offer about other periods. Answer the user's question:{Topic.Query3}
+                  fileSearchDataSource:
+                    searchFilesMode:
+                      kind: DoNotSearchFiles
+                  knowledgeSources:
+                    kind: SearchSpecificKnowledgeSources
+                    knowledgeSources:
+                      - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_H2igSam_KOdvKH_SmGW4f
+                  applyModelKnowledgeSetting: false
     - kind: EndDialog
       id: 6H3lJ5
 inputType: {}
