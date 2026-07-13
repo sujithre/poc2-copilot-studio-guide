@@ -117,7 +117,7 @@ beginDialog:
                     - kind: SetVariable
                       id: setVariable_query2Quarter
                       variable: Topic.Query2
-                      value: =Topic.FinanceOriginalQ & " - now give the same metric and the SAME subject (same brand or brands) as above, at the same level of detail, but for the quarter (Q1 / March YTD, year to date) period instead. Do not broaden to all brands and do not add commentary."
+                      value: =Topic.FinanceOriginalQ & " US Net Sales by brand quarter Q1 2026 March YTD year to date period_scope ytd"
                     - kind: SearchAndSummarizeContent
                       id: search_oppQuarter
                       userInput: =Topic.Query2
@@ -181,7 +181,7 @@ beginDialog:
                     - kind: SetVariable
                       id: setVariable_query2Month
                       variable: Topic.Query2
-                      value: =Topic.FinanceOriginalQ & " - now give the same metric and the SAME subject (same brand or brands) as above, at the same level of detail, but for the single month (MTD, March) period instead. Do not broaden to all brands and do not add commentary."
+                      value: =Topic.FinanceOriginalQ & " US Net Sales by brand single month March 2026 MTD monthly actual period_scope month"
                     - kind: SearchAndSummarizeContent
                       id: search_oppMonth
                       userInput: =Topic.Query2
