@@ -156,7 +156,7 @@ beginDialog:
           conditions:
             - id: conditionItem_measureClarify
               condition: |-
-                =IsMatch(Lower(Topic.OriginalQ), "gained or lost|gain or lose|gained/lost|gained share|lost share|gaining or losing|gain or loss|win or lose", MatchOptions.Contains)
+                =IsMatch(Lower(Topic.OriginalQ), "gained or lost|gain or lose|gained/lost|gained share|lost share|gaining or losing|gain or loss|win or lose|gainer|gainers|top gainers|share gainers|top share|rank gainers|who gained|which brands gained", MatchOptions.Contains)
                     And Not(IsMatch(Lower(Topic.OriginalQ), "kisqali|breast cancer", MatchOptions.Contains))
                     And Not(IsMatch(Lower(Topic.OriginalQ), "absolute|percentage point|percentage-point|pp change|benchmark|relative to market|vs market growth", MatchOptions.Contains))
               actions:
@@ -194,6 +194,7 @@ beginDialog:
                     NEVER conclude "lost share" from a declining ABSOLUTE number or a sub-segment alone - a brand can OUTPERFORM a falling market while its own metric declines.
                     ALWAYS SHOW LEVELS, NOT JUST DELTAS: give each metric's current level, not only its vs-PY delta.
                     STATED FIRST, CHART SUPPLEMENTS: lead with stated figures; you MAY read trend charts for approximate direction, labeled approximate + chart-derived + cite the page.
+                    RANKING ("top / which / share gainers across brands"): rank ALL Novartis priority brands (Kisqali, Kesimpta, Leqvio, Scemblix, Pluvicto, Cosentyx, Lutathera, Fabhalta) by the CHOSEN basis ONLY - include EVERY brand with a stated delta (do not stop at the top one), then add a "Not rankable from this source" list for brands lacking a stated delta. Rank ONLY Novartis brands; competitors (Ocrevus, Briumvi, Repatha) are market context only, never ranked as our gainers.
                     Cite EVERY page used. Answer the user's question:{Topic.Query5}
                   fileSearchDataSource:
                     searchFilesMode:
