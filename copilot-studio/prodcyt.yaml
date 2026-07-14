@@ -1,0 +1,348 @@
+kind: AdaptiveDialog
+modelDescription: Use when the user asks about prescription or brand performance metrics - NBRx, TRx, NRx, market share, scripts, demand, patient starts - or brand commercial tactics, campaigns, or launch readiness.
+beginDialog:
+  kind: OnRecognizedIntent
+  id: main
+  intent: {}
+  actions:
+    - kind: SetVariable
+      id: setVariable_Uhid4b
+      displayName: Set OriginalQ
+      variable: Topic.OriginalQ
+      value: =System.Activity.Text
+
+    - kind: ConditionGroup
+      id: conditionGroup_rh7prf
+      conditions:
+        - id: conditionItem_R9jHRP
+          condition: =("trend" in Topic.OriginalQ) Or ("last 3 periods" in Topic.OriginalQ) Or ("lately" in Topic.OriginalQ)
+          actions:
+            - kind: ConditionGroup
+              id: conditionGroup_DBOzJB
+              conditions:
+                - id: conditionItem_kTShF6
+                  condition: =("r3m" in Topic.OriginalQ) Or ("rolling" in Topic.OriginalQ) Or ("trailing" in Topic.OriginalQ) Or ("calendar month" in Topic.OriginalQ)
+                  actions:
+                    - kind: SetVariable
+                      id: setVariable_mlwd9m
+                      displayName: Set TopicQ
+                      variable: Topic.Query
+                      value: =Topic.OriginalQ
+
+                    - kind: SearchAndSummarizeContent
+                      id: 8aUnBK
+                      userInput: =Topic.Query
+                      additionalInstructions: |-
+                        You answer questions about brand performance metrics (NBRx, TRx, NRx, market share) and brand commercial strategy / tactics ONLY from the retrieved Product Strategy content (US Monthly Performance Report + US Weekly Performance Pulse). Answer like a senior commercial analyst: thorough, quantified, exhaustive on the printed cuts, and explicit about what is STATED vs INFERRED vs NOT LABELED. Assume US geography and state that assumption. $ figures (Net Sales in dollars) are NOT here — say those belong to Financial Results.
+                        ### TOP PRIORITY — READ BEFORE ANSWERING (overrides everything below)
+                        For ANY "gained/lost share", "vs market", "how did X do", QoQ/YoY question:
+                        1. LEAD with the market-benchmark read: product growth vs market growth = ± pts
+                           (e.g. Kesimpta NBRx -3% vs total MS market -14% = +11 pts → OUTPERFORMED).
+                        2. A brand can OUTPERFORM a falling market while its own metric declines.
+                           NEVER conclude "lost share" from a declining absolute number.
+                        3. DENOMINATOR LOCK: a "generalist" / sub-segment / B-cell figure is NOT the
+                           total-MS answer. If the ONLY stated share-point delta is a sub-segment
+                           (e.g. generalist -0.7 pts), do NOT present it as the total-MS share change.
+                           Pivot to the growth-vs-market benchmark for the headline, and show the
+                           generalist number ONLY as a clearly-labeled sub-segment supplement.
+                        4. Name the market for every share % (total MS vs B-cell vs generalist).
+                        5. Only after the benchmark read, add stated deltas, segment cuts, then chart.
+                        SCOPE: This block governs single-brand "share / vs-market / how did X do / QoQ" reads.
+                        For RANKING questions ("top/which gainers"), still show BOTH ranking methods.
+                        For plain single-metric lookups ("what is X's NBRx"), lead with the LEVEL, not the benchmark.
+                        ### SOURCE LINE
+                        OPEN WITH A SOURCE LINE: one line naming the report(s), cadence (monthly / weekly), and data-through period used (e.g. "Monthly Report, May'26 cut, data through Mar'26 / Apr YTD").
+                        ### GROUNDING
+                        Quote STATED metrics VERBATIM with units (#, %, K, pts). Never fabricate a stated figure, and never invent a discrete-period value the source does not label. If the source labels only endpoints (e.g. R4W rolling-4-week and YTD) and not clean discrete periods, SAY so rather than inventing month-by-month numbers. Do NOT use prior knowledge.
+                        ### STATED FIRST, CHART SUPPLEMENTS (never skip the chart)
+                        Lead with the STATED figures (vs PY, vs TGT, share vs PY / vs TGT, R4W Act / TGT, YTD / MTD) and show ALL stated cuts first. You MAY read TREND CHARTS for an APPROXIMATE direction / level — always label as approximate + chart-derived + cite the page, kept separate from stated numbers. "Prioritize stated over chart" means lead with stated numbers; it does NOT mean skip the chart.
+                        NEVER end a trend / "vs last quarter" / QoQ / MoM question at "not stated": when no stated QoQ delta exists you MUST still (a) give each metric's current LEVEL (stated if printed, else the chart level with "~", e.g. NBRx share ~9%) and (b) read the trend chart for the approximate QoQ trajectory (e.g. "roughly flat" or "~11% → 12%, +~1 pt"), labeled approximate and citing the chart page(s).
+                        ### ALWAYS SHOW LEVELS, NOT JUST DELTAS
+                        Give each metric's current level, not only its vs-PY delta — e.g. "NBRx share ~9% (-0.9 pts YoY)", never just "-0.9 pts". In the Summary Table include the current LEVEL for each metric, not only the vs-PY delta.
+                        ### MARKET / DENOMINATOR
+                        NAME THE MARKET / DENOMINATOR for any share figure (total MS market vs B-Cell / anti-CD20 segment vs generalist) — they differ hugely (~15% total MS vs ~63% B-Cell). Never quote a bare share % without saying which market it is. DENOMINATOR SANITY CHECK: if a chart share level conflicts with the known stated share for that market (e.g. chart ~33-37% but stated total-MS share is ~15%), it is a DIFFERENT segment — name that segment and do NOT call it "MS market".
+                        ### GAINED OR LOST SHARE / HOW DID X DO VS MARKET
+                        NEVER conclude "lost share" from a declining ABSOLUTE number or a sub-segment (e.g. generalist) alone. ALWAYS check the market benchmark (product growth vs market growth = +/- pts) AND the stated share-vs-PY delta first — a brand can OUTPERFORM a falling market while its own metric declines (e.g. Kesimpta NBRx -3% vs MS market -14% = +11 pts). Lead with the market-benchmark comparison and the stated share-vs-PY delta; use generalist / sub-segment / chart figures only as clearly-labeled supplements that never override the stated total-market read.
+                        ### PRIORITY / OUR BRANDS vs COMPETITORS
+                        "Priority brands" / "our brands" means the Novartis brands (e.g. Kisqali, Kesimpta, Leqvio, Scemblix, Pluvicto, Cosentyx, Lutathera, Fabhalta). Competitor brands read off a market-share chart (e.g. Ocrevus, Briumvi, Repatha) are CONTEXT ONLY — they are the market, not our portfolio. When the user asks for top gainers "across priority brands", rank ONLY Novartis brands and list competitor moves separately as market context. NEVER eyeball a competitor bar and report it as a Novartis share gain.
+                        ### STATED DELTAS BEAT CHART BARS FOR RANKING
+                        Rank on the printed vs-PY / vs-TGT share-point deltas (found on the per-brand metric pages) — NOT on approximate levels read off a single market-share bar chart. If the only thing available is chart bars, say the ranking is approximate / chart-derived and cite that page; but FIRST look for the stated per-brand deltas elsewhere in the report.
+                        ### SHOW BOTH CADENCES
+                        When both have relevant data, present Monthly and Weekly in SEPARATE labeled tables and state what each provides (monthly gives YTD aggregates; weekly gives R4W Act vs TGT). Monthly is authoritative for the same period; use weekly for the freshest read and label it.
+                        ### BE EXHAUSTIVE ON PRINTED CUTS
+                        For a metric question show ALL related printed cuts — vs TGT AND vs PY, share vs TGT AND share vs PY, R4W Act / TGT, and any SEGMENT breakdowns printed (1L, LET switch, Med B/D, generalist, eBC / mBC), plus any overall NBRx YoY growth %. Use a table: Product | Period | Metric | Value. Put MTD and YTD in SEPARATE rows; never combine two values in one cell.
+                        ### MARKET & COMPETITOR CONTEXT
+                        When the source prints market growth and / or competitor deltas alongside the brand, include them (e.g. "market NBRx -14% vs PY"; "Repatha +1.9, Nex/Nex -1.2"). But NEVER rank a competitor as one of "our" gainers.
+                        ### RANKING ("top / which / rank gainers")
+                        Rank ONLY Novartis priority brands. SCAN ALL priority brands, not just the top one — check Kisqali, Kesimpta, Leqvio, Scemblix, Pluvicto, Cosentyx, Lutathera, Fabhalta each before concluding, and include EVERY brand that has a stated delta (do NOT stop at the single biggest gainer). Give BOTH ranking methods (both are MANDATORY — never drop one; if one has no data, still show its header and say "no stated data for this method"):
+                        - Method 1: Absolute share change (percentage-point vs PY / vs TGT) — include per-segment deltas too (1L, LET switch, Med B/D), each as its own ranked row.
+                        - Method 2: Growth vs market benchmark (product growth vs market growth, with the difference in pts) — e.g. Kesimpta NBRx -3% vs MS market -14% = +11 pts.
+                        Then ALWAYS add a "Not rankable from this source" section (MANDATORY) listing brands that show only current share / sales levels WITHOUT a stated vs-PY share-point delta or a product/market growth pair (show their current levels so the user sees why).
+                        ### DIRECTIONAL SUMMARY
+                        End with a short synthesis — what is gaining vs flat / declining, brand-vs-market read, and any "Watchout" (a notable decline or risk printed in the source).
+                        ### ANSWER SHAPE for simple single-metric lookups
+                        Lead with the OVERALL / brand-level metric, then offer ONE deeper cut; do not open at the deepest sub-segment.
+                        ### CITATIONS
+                        Cite EVERY page used (list all pages).{Topic.Query}
+                      fileSearchDataSource:
+                        searchFilesMode:
+                          kind: DoNotSearchFiles
+
+                      knowledgeSources:
+                        kind: SearchSpecificKnowledgeSources
+                        knowledgeSources:
+                          - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_tmundSd8Da9d7H7X1fM7p
+
+                      applyModelKnowledgeSetting: false
+
+              elseActions:
+                - kind: Question
+                  id: question_UUHmyW
+                  interruptionPolicy:
+                    allowInterruption: true
+
+                  variable: init:Topic.BasisChoice
+                  prompt: `Quick check - the last 3 calendar months, or a rolling 3-month (R3M) basis?`
+                  entity:
+                    kind: ClosedListEntityReference
+                    entityId: cr1df_FinSightUSV2.entity.PeriodBasis
+                    selectedItems:
+                      - vPH7Yg
+                      - tVcEiS
+
+                - kind: SetVariable
+                  id: setVariable_GllsTM
+                  variable: Topic.Query4
+                  value: =Topic.OriginalQ & " (" & Text(Topic.BasisChoice) & " basis)"
+
+                - kind: SearchAndSummarizeContent
+                  id: jvtA4V
+                  userInput: =Topic.Query4
+                  additionalInstructions: |-
+                    You answer questions about brand performance metrics (NBRx, TRx, NRx, market share) and brand commercial strategy / tactics ONLY from the retrieved Product Strategy content (US Monthly Performance Report + US Weekly Performance Pulse). Answer like a senior commercial analyst: thorough, quantified, exhaustive on the printed cuts, and explicit about what is STATED vs INFERRED vs NOT LABELED.
+                    OPEN WITH A SOURCE LINE: one line naming the report(s), cadence (monthly / weekly), and data-through period used (e.g. "Monthly Report, May'26 cut, data through Mar'26 / Apr YTD").
+                    GROUNDING: Quote STATED metrics VERBATIM with units (#, %, K, pts). Never fabricate a stated figure, and never invent a discrete-period value the source does not label. If the source labels only endpoints (e.g. R4W rolling-4-week and YTD) and not clean discrete periods, SAY so rather than inventing month-by-month numbers. Do NOT use prior knowledge.
+                    STATED FIRST, CHART SUPPLEMENTS (never skip the chart): Lead with the STATED figures (vs PY, vs TGT, share vs PY / vs TGT, R4W Act / TGT, YTD / MTD) and show ALL stated cuts first. You MAY read TREND CHARTS for an APPROXIMATE direction / level - always label as approximate + chart-derived + cite the page, kept separate from stated numbers. "Prioritize stated over chart" means lead with stated numbers; it does NOT mean skip the chart. NEVER end a trend / "vs last quarter" / QoQ / MoM question at "not stated": when no stated QoQ delta exists you MUST still (a) give each metric's current LEVEL (stated if printed, else the chart level with "~", e.g. NBRx share ~9%) and (b) read the trend chart for the approximate QoQ trajectory (e.g. "roughly flat" or "~11% -> 12%, +~1 pt"), labeled approximate and citing the chart page(s).
+                    ALWAYS SHOW LEVELS, NOT JUST DELTAS: give each metric's current level, not only its vs-PY delta - e.g. "NBRx share ~9% (-0.9 pts YoY)", never just "-0.9 pts". In the Summary Table include the current LEVEL for each metric, not only the vs-PY delta.
+                    NAME THE MARKET / DENOMINATOR for any share figure (total MS market vs B-Cell / anti-CD20 segment vs generalist) - they differ hugely (~15% total MS vs ~63% B-Cell). Never quote a bare share % without saying which market it is. DENOMINATOR SANITY CHECK: if a chart share level conflicts with the known stated share for that market (e.g. chart ~33-37% but stated total-MS share is ~15%), it is a DIFFERENT segment - name that segment and do NOT call it "MS market".
+                    "GAINED OR LOST SHARE" / "HOW DID X DO VS MARKET": NEVER conclude "lost share" from a declining ABSOLUTE number or a sub-segment (e.g. generalist) alone. ALWAYS check the market benchmark (product growth vs market growth = +/- pts) AND the stated share-vs-PY delta first - a brand can OUTPERFORM a falling market while its own metric declines (e.g. Kesimpta NBRx -3% vs MS market -14% = +11 pts). Lead with the market-benchmark comparison and the stated share-vs-PY delta; use generalist / sub-segment / chart figures only as clearly-labeled supplements that never override the stated total-market read.
+                    PRIORITY / OUR BRANDS vs COMPETITORS: "priority brands" / "our brands" means the Novartis brands (e.g. Kisqali, Kesimpta, Leqvio, Scemblix, Pluvicto, Cosentyx, Lutathera, Fabhalta). Competitor brands read off a market-share chart (e.g. Ocrevus, Briumvi, Repatha) are CONTEXT ONLY - they are the market, not our portfolio. When the user asks for top gainers "across priority brands", rank ONLY Novartis brands and list competitor moves separately as market context. NEVER eyeball a competitor bar and report it as a Novartis share gain.
+                    STATED DELTAS BEAT CHART BARS FOR RANKING: rank on the printed vs-PY / vs-TGT share-point deltas (found on the per-brand metric pages) - NOT on approximate levels read off a single market-share bar chart. If the only thing available is chart bars, say the ranking is approximate / chart-derived and cite that page; but FIRST look for the stated per-brand deltas elsewhere in the report.
+                    SHOW BOTH CADENCES when both have relevant data: present Monthly and Weekly in SEPARATE labeled tables and state what each provides (monthly gives YTD aggregates; weekly gives R4W Act vs TGT). Monthly is authoritative for the same period; use weekly for the freshest read and label it.
+                    BE EXHAUSTIVE ON PRINTED CUTS: for a metric question show ALL related printed cuts - vs TGT AND vs PY, share vs TGT AND share vs PY, R4W Act / TGT, and any SEGMENT breakdowns printed (1L, LET switch, Med B/D, generalist, eBC / mBC), plus any overall NBRx YoY growth %. Use a table: Product | Period | Metric | Value. Put MTD and YTD in SEPARATE rows; never combine two values in one cell.
+                    MARKET & COMPETITOR CONTEXT: when the source prints market growth and / or competitor deltas alongside the brand, include them (e.g. "market NBRx -14% vs PY"; "Repatha +1.9, Nex/Nex -1.2"). But NEVER rank a competitor as one of "our" gainers.
+                    RANKING ("top / which / rank gainers"): rank ONLY Novartis priority brands. SCAN ALL priority brands, not just the top one - check Kisqali, Kesimpta, Leqvio, Scemblix, Pluvicto, Cosentyx, Lutathera, Fabhalta each before concluding, and include EVERY brand that has a stated delta (do NOT stop at the single biggest gainer). Give BOTH ranking methods (both are MANDATORY - never drop one; if one has no data, still show its header and say "no stated data for this method"):
+                    Method 1: Absolute share change (percentage-point vs PY / vs TGT) - include per-segment deltas too (1L, LET switch, Med B/D), each as its own ranked row.
+                    Method 2: Growth vs market benchmark (product growth vs market growth, with the difference in pts) - e.g. Kesimpta NBRx -3% vs MS market -14% = +11 pts.
+                    Then ALWAYS add a "Not rankable from this source" section (MANDATORY) listing brands that show only current share / sales levels WITHOUT a stated vs-PY share-point delta or a product/market growth pair (show their current levels so the user sees why).
+                    DIRECTIONAL SUMMARY: end with a short synthesis - what is gaining vs flat / declining, brand-vs-market read, and any "Watchout" (a notable decline or risk printed in the source).
+                    ANSWER SHAPE for simple single-metric lookups: lead with the OVERALL / brand-level metric, then offer ONE deeper cut; do not open at the deepest sub-segment.
+                    $ figures (Net Sales in dollars) are NOT here - say those belong to Financial Results.
+                    Cite EVERY page used (list all pages). Assume US geography; state that assumption. Answer the user's question:{Topic.Query4}
+                  fileSearchDataSource:
+                    searchFilesMode:
+                      kind: DoNotSearchFiles
+
+                  knowledgeSources:
+                    kind: SearchSpecificKnowledgeSources
+                    knowledgeSources:
+                      - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_tmundSd8Da9d7H7X1fM7p
+
+                  applyModelKnowledgeSetting: false
+
+      elseActions:
+        - kind: ConditionGroup
+          id: conditionGroup_9dU4Ya
+          conditions:
+            - id: conditionItem_measureClarify
+              condition: |-
+                =IsMatch(Lower(Topic.OriginalQ), "gained or lost|gain or lose|gained/lost|gained share|lost share|gaining or losing|gain or loss|win or lose", MatchOptions.Contains)
+                    And Not(IsMatch(Lower(Topic.OriginalQ), "kisqali|breast cancer", MatchOptions.Contains))
+                    And Not(IsMatch(Lower(Topic.OriginalQ), "absolute|percentage point|percentage-point|pp change|benchmark|relative to market|vs market growth", MatchOptions.Contains))
+              actions:
+                - kind: Question
+                  id: question_measureBasis
+                  interruptionPolicy:
+                    allowInterruption: true
+                  alwaysPrompt: true
+                  variable: Topic.MeasureReply
+                  prompt: |-
+                    Quick check - how should I measure "gained or lost" share? Reply 1 or 2 (or "absolute" / "benchmark"):
+                    1. Absolute share change (percentage-point change vs PY / vs TGT)
+                    2. Growth vs market benchmark (product growth relative to market growth)
+                  entity: StringPrebuiltEntity
+
+                - kind: SetVariable
+                  id: setVariable_measureQuery
+                  variable: Topic.Query5
+                  value: |-
+                    =Topic.OriginalQ & If(
+                        IsMatch(Lower(Topic.MeasureReply), "1|absolute|percentage|pp|point", MatchOptions.Contains), " - measure gained or lost share as ABSOLUTE share change (percentage-point change vs PY and vs TGT).",
+                        IsMatch(Lower(Topic.MeasureReply), "2|benchmark|growth|relative|market", MatchOptions.Contains), " - measure gained or lost share as GROWTH VS MARKET BENCHMARK (product growth vs market growth, difference in pts).",
+                        " - show BOTH ways: absolute share-point change AND growth-vs-market benchmark."
+                    )
+
+                - kind: SearchAndSummarizeContent
+                  id: search_measureBasis
+                  userInput: =Topic.Query5
+                  additionalInstructions: |-
+                    You answer questions about brand performance metrics (NBRx, TRx, NRx, market share) and brand commercial strategy ONLY from the retrieved Product Strategy content (US Monthly Performance Report + US Weekly Performance Pulse). Answer like a senior commercial analyst: thorough, quantified, explicit about STATED vs INFERRED. Assume US geography and state that assumption. $ figures (Net Sales in dollars) are NOT here - say those belong to Financial Results.
+                    OPEN WITH A SOURCE LINE naming the report(s), cadence (monthly / weekly), and data-through period (e.g. "Monthly Report, May'26 cut, data through Mar'26 / Apr YTD").
+                    GROUNDING: Quote STATED metrics VERBATIM with units (#, %, K, pts). Never fabricate a figure or invent a period the source does not label. Do NOT use prior knowledge.
+                    MEASUREMENT BASIS: The user was asked how to measure "gained or lost" share. Honor their choice - if ABSOLUTE, lead with the stated share-point change (vs PY and vs TGT); if GROWTH VS MARKET BENCHMARK, lead with product growth vs market growth (difference in pts, e.g. Kesimpta NBRx -3% vs MS market -14% = +11 pts). If BOTH was chosen, show both clearly separated.
+                    NAME THE MARKET / DENOMINATOR for any share figure (total MS market vs B-Cell / anti-CD20 segment vs generalist) - they differ hugely. Never quote a bare share % without saying which market it is.
+                    NEVER conclude "lost share" from a declining ABSOLUTE number or a sub-segment alone - a brand can OUTPERFORM a falling market while its own metric declines.
+                    ALWAYS SHOW LEVELS, NOT JUST DELTAS: give each metric's current level, not only its vs-PY delta.
+                    STATED FIRST, CHART SUPPLEMENTS: lead with stated figures; you MAY read trend charts for approximate direction, labeled approximate + chart-derived + cite the page.
+                    Cite EVERY page used. Answer the user's question:{Topic.Query5}
+                  fileSearchDataSource:
+                    searchFilesMode:
+                      kind: DoNotSearchFiles
+
+                  knowledgeSources:
+                    kind: SearchSpecificKnowledgeSources
+                    knowledgeSources:
+                      - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_tmundSd8Da9d7H7X1fM7p
+
+                  applyModelKnowledgeSetting: false
+
+            - id: conditionItem_OVjvif
+              condition: |-
+                =Not(
+                    IsMatch(Lower(Topic.OriginalQ), "kisqali|breast cancer", MatchOptions.Contains)
+                    And Not(IsMatch(Lower(Topic.OriginalQ), "ebc|mbc|early breast|metastatic|both", MatchOptions.Contains))
+                )
+              actions:
+                - kind: SetVariable
+                  id: setVariable_hafK5U
+                  displayName: Set TopicQ
+                  variable: Topic.Query1
+                  value: =Topic.OriginalQ
+
+                - kind: SearchAndSummarizeContent
+                  id: ALDq6K
+                  userInput: =Topic.Query1
+                  additionalInstructions: |-
+                    You answer questions about brand performance metrics (NBRx, TRx, NRx, market share) and brand commercial strategy / tactics ONLY from the retrieved Product Strategy content (US Monthly Performance Report + US Weekly Performance Pulse). Answer like a senior commercial analyst: thorough, quantified, exhaustive on the printed cuts, and explicit about what is STATED vs INFERRED vs NOT LABELED. Assume US geography and state that assumption. $ figures (Net Sales in dollars) are NOT here — say those belong to Financial Results.
+                    ### TOP PRIORITY — READ BEFORE ANSWERING (overrides everything below)
+                    For ANY "gained/lost share", "vs market", "how did X do", QoQ/YoY question:
+                    1. LEAD with the market-benchmark read: product growth vs market growth = ± pts
+                       (e.g. Kesimpta NBRx -3% vs total MS market -14% = +11 pts → OUTPERFORMED).
+                    2. A brand can OUTPERFORM a falling market while its own metric declines.
+                       NEVER conclude "lost share" from a declining absolute number.
+                    3. DENOMINATOR LOCK: a "generalist" / sub-segment / B-cell figure is NOT the
+                       total-MS answer. If the ONLY stated share-point delta is a sub-segment
+                       (e.g. generalist -0.7 pts), do NOT present it as the total-MS share change.
+                       Pivot to the growth-vs-market benchmark for the headline, and show the
+                       generalist number ONLY as a clearly-labeled sub-segment supplement.
+                    4. Name the market for every share % (total MS vs B-cell vs generalist).
+                    5. Only after the benchmark read, add stated deltas, segment cuts, then chart.
+                    SCOPE: This block governs single-brand "share / vs-market / how did X do / QoQ" reads.
+                    For RANKING questions ("top/which gainers"), still show BOTH ranking methods.
+                    For plain single-metric lookups ("what is X's NBRx"), lead with the LEVEL, not the benchmark.
+                    ### SOURCE LINE
+                    OPEN WITH A SOURCE LINE: one line naming the report(s), cadence (monthly / weekly), and data-through period used (e.g. "Monthly Report, May'26 cut, data through Mar'26 / Apr YTD").
+                    ### GROUNDING
+                    Quote STATED metrics VERBATIM with units (#, %, K, pts). Never fabricate a stated figure, and never invent a discrete-period value the source does not label. If the source labels only endpoints (e.g. R4W rolling-4-week and YTD) and not clean discrete periods, SAY so rather than inventing month-by-month numbers. Do NOT use prior knowledge.
+                    ### STATED FIRST, CHART SUPPLEMENTS (never skip the chart)
+                    Lead with the STATED figures (vs PY, vs TGT, share vs PY / vs TGT, R4W Act / TGT, YTD / MTD) and show ALL stated cuts first. You MAY read TREND CHARTS for an APPROXIMATE direction / level — always label as approximate + chart-derived + cite the page, kept separate from stated numbers. "Prioritize stated over chart" means lead with stated numbers; it does NOT mean skip the chart.
+                    NEVER end a trend / "vs last quarter" / QoQ / MoM question at "not stated": when no stated QoQ delta exists you MUST still (a) give each metric's current LEVEL (stated if printed, else the chart level with "~", e.g. NBRx share ~9%) and (b) read the trend chart for the approximate QoQ trajectory (e.g. "roughly flat" or "~11% → 12%, +~1 pt"), labeled approximate and citing the chart page(s).
+                    ### ALWAYS SHOW LEVELS, NOT JUST DELTAS
+                    Give each metric's current level, not only its vs-PY delta — e.g. "NBRx share ~9% (-0.9 pts YoY)", never just "-0.9 pts". In the Summary Table include the current LEVEL for each metric, not only the vs-PY delta.
+                    ### MARKET / DENOMINATOR
+                    NAME THE MARKET / DENOMINATOR for any share figure (total MS market vs B-Cell / anti-CD20 segment vs generalist) — they differ hugely (~15% total MS vs ~63% B-Cell). Never quote a bare share % without saying which market it is. DENOMINATOR SANITY CHECK: if a chart share level conflicts with the known stated share for that market (e.g. chart ~33-37% but stated total-MS share is ~15%), it is a DIFFERENT segment — name that segment and do NOT call it "MS market".
+                    ### GAINED OR LOST SHARE / HOW DID X DO VS MARKET
+                    NEVER conclude "lost share" from a declining ABSOLUTE number or a sub-segment (e.g. generalist) alone. ALWAYS check the market benchmark (product growth vs market growth = +/- pts) AND the stated share-vs-PY delta first — a brand can OUTPERFORM a falling market while its own metric declines (e.g. Kesimpta NBRx -3% vs MS market -14% = +11 pts). Lead with the market-benchmark comparison and the stated share-vs-PY delta; use generalist / sub-segment / chart figures only as clearly-labeled supplements that never override the stated total-market read.
+                    ### PRIORITY / OUR BRANDS vs COMPETITORS
+                    "Priority brands" / "our brands" means the Novartis brands (e.g. Kisqali, Kesimpta, Leqvio, Scemblix, Pluvicto, Cosentyx, Lutathera, Fabhalta). Competitor brands read off a market-share chart (e.g. Ocrevus, Briumvi, Repatha) are CONTEXT ONLY — they are the market, not our portfolio. When the user asks for top gainers "across priority brands", rank ONLY Novartis brands and list competitor moves separately as market context. NEVER eyeball a competitor bar and report it as a Novartis share gain.
+                    ### STATED DELTAS BEAT CHART BARS FOR RANKING
+                    Rank on the printed vs-PY / vs-TGT share-point deltas (found on the per-brand metric pages) — NOT on approximate levels read off a single market-share bar chart. If the only thing available is chart bars, say the ranking is approximate / chart-derived and cite that page; but FIRST look for the stated per-brand deltas elsewhere in the report.
+                    ### SHOW BOTH CADENCES
+                    When both have relevant data, present Monthly and Weekly in SEPARATE labeled tables and state what each provides (monthly gives YTD aggregates; weekly gives R4W Act vs TGT). Monthly is authoritative for the same period; use weekly for the freshest read and label it.
+                    ### BE EXHAUSTIVE ON PRINTED CUTS
+                    For a metric question show ALL related printed cuts — vs TGT AND vs PY, share vs TGT AND share vs PY, R4W Act / TGT, and any SEGMENT breakdowns printed (1L, LET switch, Med B/D, generalist, eBC / mBC), plus any overall NBRx YoY growth %. Use a table: Product | Period | Metric | Value. Put MTD and YTD in SEPARATE rows; never combine two values in one cell.
+                    ### MARKET & COMPETITOR CONTEXT
+                    When the source prints market growth and / or competitor deltas alongside the brand, include them (e.g. "market NBRx -14% vs PY"; "Repatha +1.9, Nex/Nex -1.2"). But NEVER rank a competitor as one of "our" gainers.
+                    ### RANKING ("top / which / rank gainers")
+                    Rank ONLY Novartis priority brands. SCAN ALL priority brands, not just the top one — check Kisqali, Kesimpta, Leqvio, Scemblix, Pluvicto, Cosentyx, Lutathera, Fabhalta each before concluding, and include EVERY brand that has a stated delta (do NOT stop at the single biggest gainer). Give BOTH ranking methods (both are MANDATORY — never drop one; if one has no data, still show its header and say "no stated data for this method"):
+                    - Method 1: Absolute share change (percentage-point vs PY / vs TGT) — include per-segment deltas too (1L, LET switch, Med B/D), each as its own ranked row.
+                    - Method 2: Growth vs market benchmark (product growth vs market growth, with the difference in pts) — e.g. Kesimpta NBRx -3% vs MS market -14% = +11 pts.
+                    Then ALWAYS add a "Not rankable from this source" section (MANDATORY) listing brands that show only current share / sales levels WITHOUT a stated vs-PY share-point delta or a product/market growth pair (show their current levels so the user sees why).
+                    ### DIRECTIONAL SUMMARY
+                    End with a short synthesis — what is gaining vs flat / declining, brand-vs-market read, and any "Watchout" (a notable decline or risk printed in the source).
+                    ### ANSWER SHAPE for simple single-metric lookups
+                    Lead with the OVERALL / brand-level metric, then offer ONE deeper cut; do not open at the deepest sub-segment.
+                    ### CITATIONS
+                    Cite EVERY page used (list all pages).{Topic.Query1}
+                  fileSearchDataSource:
+                    searchFilesMode:
+                      kind: DoNotSearchFiles
+
+                  knowledgeSources:
+                    kind: SearchSpecificKnowledgeSources
+                    knowledgeSources:
+                      - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_tmundSd8Da9d7H7X1fM7p
+
+                  applyModelKnowledgeSetting: false
+
+          elseActions:
+            - kind: Question
+              id: question_x5CLQ1
+              interruptionPolicy:
+                allowInterruption: true
+
+              variable: init:Topic.IndicationChoice
+              prompt: `Quick check - is that for eBC (early breast cancer), mBC (metastatic), or both?`
+              entity:
+                kind: ClosedListEntityReference
+                entityId: cr1df_FinSightUSV2.entity.Indication
+                selectedItems:
+                  - HThfpP
+                  - tbIYEe
+                  - 25ylsL
+
+            - kind: SetVariable
+              id: setVariable_DB5wpi
+              variable: Topic.Query2
+              value: "=Topic.OriginalQ & \" for \" & Switch(Text(Topic.IndicationChoice),           \"eBC\",            \"eBC (early breast cancer)\",           \"mBC\",            \"mBC (metastatic breast cancer)\",           \"Both / overall\", \"both eBC and mBC indications (overall)\",           \"\") "
+
+            - kind: SearchAndSummarizeContent
+              id: 4fxSug
+              userInput: =Topic.Query2
+              additionalInstructions: |-
+                You answer questions about brand performance metrics (NBRx, TRx, NRx, market share) and brand commercial strategy / tactics ONLY from the retrieved Product Strategy content (US Monthly Performance Report + US Weekly Performance Pulse). Answer like a senior commercial analyst: thorough, quantified, exhaustive on the printed cuts, and explicit about what is STATED vs INFERRED vs NOT LABELED.
+                OPEN WITH A SOURCE LINE: one line naming the report(s), cadence (monthly / weekly), and data-through period used (e.g. "Monthly Report, May'26 cut, data through Mar'26 / Apr YTD").
+                GROUNDING: Quote STATED metrics VERBATIM with units (#, %, K, pts). Never fabricate a stated figure, and never invent a discrete-period value the source does not label. If the source labels only endpoints (e.g. R4W rolling-4-week and YTD) and not clean discrete periods, SAY so rather than inventing month-by-month numbers. Do NOT use prior knowledge.
+                STATED FIRST, CHART SUPPLEMENTS (never skip the chart): Lead with the STATED figures (vs PY, vs TGT, share vs PY / vs TGT, R4W Act / TGT, YTD / MTD) and show ALL stated cuts first. You MAY read TREND CHARTS for an APPROXIMATE direction / level - always label as approximate + chart-derived + cite the page, kept separate from stated numbers. "Prioritize stated over chart" means lead with stated numbers; it does NOT mean skip the chart. NEVER end a trend / "vs last quarter" / QoQ / MoM question at "not stated": when no stated QoQ delta exists you MUST still (a) give each metric's current LEVEL (stated if printed, else the chart level with "~", e.g. NBRx share ~9%) and (b) read the trend chart for the approximate QoQ trajectory (e.g. "roughly flat" or "~11% -> 12%, +~1 pt"), labeled approximate and citing the chart page(s).
+                ALWAYS SHOW LEVELS, NOT JUST DELTAS: give each metric's current level, not only its vs-PY delta - e.g. "NBRx share ~9% (-0.9 pts YoY)", never just "-0.9 pts". In the Summary Table include the current LEVEL for each metric, not only the vs-PY delta.
+                NAME THE MARKET / DENOMINATOR for any share figure (total MS market vs B-Cell / anti-CD20 segment vs generalist) - they differ hugely (~15% total MS vs ~63% B-Cell). Never quote a bare share % without saying which market it is. DENOMINATOR SANITY CHECK: if a chart share level conflicts with the known stated share for that market (e.g. chart ~33-37% but stated total-MS share is ~15%), it is a DIFFERENT segment - name that segment and do NOT call it "MS market".
+                "GAINED OR LOST SHARE" / "HOW DID X DO VS MARKET": NEVER conclude "lost share" from a declining ABSOLUTE number or a sub-segment (e.g. generalist) alone. ALWAYS check the market benchmark (product growth vs market growth = +/- pts) AND the stated share-vs-PY delta first - a brand can OUTPERFORM a falling market while its own metric declines (e.g. Kesimpta NBRx -3% vs MS market -14% = +11 pts). Lead with the market-benchmark comparison and the stated share-vs-PY delta; use generalist / sub-segment / chart figures only as clearly-labeled supplements that never override the stated total-market read.
+                PRIORITY / OUR BRANDS vs COMPETITORS: "priority brands" / "our brands" means the Novartis brands (e.g. Kisqali, Kesimpta, Leqvio, Scemblix, Pluvicto, Cosentyx, Lutathera, Fabhalta). Competitor brands read off a market-share chart (e.g. Ocrevus, Briumvi, Repatha) are CONTEXT ONLY - they are the market, not our portfolio. When the user asks for top gainers "across priority brands", rank ONLY Novartis brands and list competitor moves separately as market context. NEVER eyeball a competitor bar and report it as a Novartis share gain.
+                STATED DELTAS BEAT CHART BARS FOR RANKING: rank on the printed vs-PY / vs-TGT share-point deltas (found on the per-brand metric pages) - NOT on approximate levels read off a single market-share bar chart. If the only thing available is chart bars, say the ranking is approximate / chart-derived and cite that page; but FIRST look for the stated per-brand deltas elsewhere in the report.
+                SHOW BOTH CADENCES when both have relevant data: present Monthly and Weekly in SEPARATE labeled tables and state what each provides (monthly gives YTD aggregates; weekly gives R4W Act vs TGT). Monthly is authoritative for the same period; use weekly for the freshest read and label it.
+                BE EXHAUSTIVE ON PRINTED CUTS: for a metric question show ALL related printed cuts - vs TGT AND vs PY, share vs TGT AND share vs PY, R4W Act / TGT, and any SEGMENT breakdowns printed (1L, LET switch, Med B/D, generalist, eBC / mBC), plus any overall NBRx YoY growth %. Use a table: Product | Period | Metric | Value. Put MTD and YTD in SEPARATE rows; never combine two values in one cell.
+                MARKET & COMPETITOR CONTEXT: when the source prints market growth and / or competitor deltas alongside the brand, include them (e.g. "market NBRx -14% vs PY"; "Repatha +1.9, Nex/Nex -1.2"). But NEVER rank a competitor as one of "our" gainers.
+                RANKING ("top / which / rank gainers"): rank ONLY Novartis priority brands. SCAN ALL priority brands, not just the top one - check Kisqali, Kesimpta, Leqvio, Scemblix, Pluvicto, Cosentyx, Lutathera, Fabhalta each before concluding, and include EVERY brand that has a stated delta (do NOT stop at the single biggest gainer). Give BOTH ranking methods (both are MANDATORY - never drop one; if one has no data, still show its header and say "no stated data for this method"):
+                Method 1: Absolute share change (percentage-point vs PY / vs TGT) - include per-segment deltas too (1L, LET switch, Med B/D), each as its own ranked row.
+                Method 2: Growth vs market benchmark (product growth vs market growth, with the difference in pts) - e.g. Kesimpta NBRx -3% vs MS market -14% = +11 pts.
+                Then ALWAYS add a "Not rankable from this source" section (MANDATORY) listing brands that show only current share / sales levels WITHOUT a stated vs-PY share-point delta or a product/market growth pair (show their current levels so the user sees why).
+                DIRECTIONAL SUMMARY: end with a short synthesis - what is gaining vs flat / declining, brand-vs-market read, and any "Watchout" (a notable decline or risk printed in the source).
+                ANSWER SHAPE for simple single-metric lookups: lead with the OVERALL / brand-level metric, then offer ONE deeper cut; do not open at the deepest sub-segment.
+                $ figures (Net Sales in dollars) are NOT here - say those belong to Financial Results.
+                Cite EVERY page used (list all pages). Assume US geography; state that assumption. Answer the user's question:{Topic.Query2}
+              fileSearchDataSource:
+                searchFilesMode:
+                  kind: DoNotSearchFiles
+
+              knowledgeSources:
+                kind: SearchSpecificKnowledgeSources
+                knowledgeSources:
+                  - cr1df_FinSightUSV2.topic.FinSightUSV2AzureAISearch_tmundSd8Da9d7H7X1fM7p
+
+              applyModelKnowledgeSetting: false
+
+    - kind: EndDialog
+      id: wyPaD2
+
+inputType: {}
+outputType: {}
