@@ -73,48 +73,14 @@ beginDialog:
                 =Topic.Clarifier & "INDICATION SCOPE CHOSEN BY THE USER: " & Text(Topic.IndicationChoice) & ". Restrict the answer to that indication; if the user chose both or overall, lead with the pan-indication total and then split by indication. "
 
     # ------------------------------------------------------------------
-    # 3. Measurement basis - only for a gained/lost/gainers question that has
-    #    not already stated a basis. Skipped when the indication clarifier
-    #    already ran, so the user is never asked two things at once.
+    # 3. Period basis - only for a trend question that has not stated one.
     #
-    # This matters because the two bases can disagree: a brand can outperform
-    # a falling market while its own volume declines.
-    # ------------------------------------------------------------------
-    - kind: ConditionGroup
-      id: maybeAskMeasureBasis
-      displayName: Measurement basis needed?
-      conditions:
-        - id: askMeasureBasis
-          condition: |-
-            =IsMatch(Lower(Topic.OriginalQ), "gained or lost|gain or lose|gained/lost|gained share|lost share|gaining or losing|gain or loss|win or lose|gainer|gainers|top gainers|share gainers|top share|rank gainers|who gained|which brands gained", MatchOptions.Contains)
-            And Not(IsMatch(Lower(Topic.OriginalQ), "kisqali|breast cancer", MatchOptions.Contains))
-            And Not(IsMatch(Lower(Topic.OriginalQ), "absolute|percentage point|percentage-point|pp change|benchmark|relative to market|vs market growth", MatchOptions.Contains))
-          actions:
-            - kind: Question
-              id: questionMeasureBasis
-              interruptionPolicy:
-                allowInterruption: true
-              alwaysPrompt: true
-              variable: Topic.MeasureReply
-              prompt: |-
-                Quick check - how should I measure "gained or lost" share? Reply 1 or 2 (or "absolute" / "benchmark"):
-                1. Absolute share change (percentage-point change vs PY / vs TGT)
-                2. Growth vs market benchmark (product growth relative to market growth)
-              entity: StringPrebuiltEntity
-
-            - kind: SetVariable
-              id: setMeasureScope
-              displayName: Record measurement basis
-              variable: Topic.Clarifier
-              value: |-
-                =Topic.Clarifier & If(
-                    IsMatch(Lower(Topic.MeasureReply), "1|absolute|percentage|pp|point", MatchOptions.Contains), "MEASUREMENT BASIS CHOSEN BY THE USER: ABSOLUTE share-point change (vs PY and vs TGT). Lead with that basis and name it. ",
-                    IsMatch(Lower(Topic.MeasureReply), "2|benchmark|growth|relative|market", MatchOptions.Contains), "MEASUREMENT BASIS CHOSEN BY THE USER: GROWTH VS MARKET BENCHMARK (product growth minus market growth, in points). Lead with that basis and name it. ",
-                    "MEASUREMENT BASIS: the user did not pick one - show BOTH the absolute share-point change and the growth-vs-market benchmark, clearly separated. "
-                )
-
-    # ------------------------------------------------------------------
-    # 4. Period basis - only for a trend question that has not stated one.
+    # NOTE: there is deliberately NO measurement-basis clarifier. "Gained or
+    # lost share" has two valid bases (absolute share-point change, and growth
+    # versus the market) and they can disagree, but asking the user to pick
+    # costs a turn on the most common question in the topic. The instructions
+    # below require BOTH to be shown, clearly separated, so the reader can see
+    # the disagreement rather than having to anticipate it.
     # ------------------------------------------------------------------
     - kind: ConditionGroup
       id: maybeAskPeriodBasis
@@ -147,7 +113,7 @@ beginDialog:
                 =Topic.Clarifier & "PERIOD BASIS CHOSEN BY THE USER: " & Text(Topic.BasisChoice) & ". Use that basis and name it. "
 
     # ------------------------------------------------------------------
-    # 5. ONE answer step, ONE set of instructions.
+    # 4. ONE answer step, ONE set of instructions.
     #
     # There used to be five copies across five branches and they had drifted:
     # the branches a plain "did X gain or lose share" question could reach
@@ -185,13 +151,15 @@ beginDialog:
         figures"). It governs every number in that passage.
 
         ### MEASUREMENT BASIS - "gained or lost share"
-        Two bases exist and they can disagree:
+        Two bases exist and they can disagree. SHOW BOTH, clearly separated and each
+        labelled, unless the user named one:
         - ABSOLUTE: the stated share-point change vs PY and vs TGT.
-        - GROWTH VS MARKET BENCHMARK: product growth minus market growth, in points. A brand
-          can outperform a falling market while its own volume declines, so a falling
-          absolute number is never on its own evidence of lost share.
-        If a basis was chosen for you above, use it and name it. If not, show both when both
-        are available.
+        - GROWTH VS MARKET BENCHMARK: product growth minus market growth, in points.
+        A brand can outperform a falling market while its own volume declines, so a falling
+        absolute number is never on its own evidence of lost share - and a positive benchmark
+        read does not cancel a negative absolute one. If the two disagree, say so plainly;
+        that disagreement is the answer, not something to resolve away. If only one basis is
+        available in the passages, give it and say the other is not stated.
 
         ### SHOW IT AS A TABLE
         Any answer spanning more than one metric, market or period MUST include a table.
