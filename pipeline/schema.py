@@ -29,6 +29,18 @@ FigureKind = Literal[
 
 Confidence = Literal["high", "medium", "low"]
 
+# Whether the extractor could bind each charted value to the series that owns it.
+# Multi-series performance charts are the single largest source of confidently
+# wrong facts: the model reads the legend top-to-bottom, reads the plotted lines
+# top-to-bottom, and pairs them off - which silently relabels the market leader's
+# line with the first brand in the legend. Forcing this to be declared means an
+# unbindable chart degrades to "values without owners" instead of to a lie.
+SeriesAttribution = Literal[
+    "explicit",      # every emitted value sits on/next to its own series, or the chart is single-series
+    "unavailable",   # values are printed but cannot be tied to a series - emit them unattributed
+    "not_applicable",  # no series at all (photo, logo, diagram, infographic)
+]
+
 # How the figure aggregates time. A monthly close deck has BOTH a single-month
 # page and a year-to-date page; they must be distinguishable.
 PeriodScope = Literal["month", "ytd", "quarter", "half", "full_year", "unknown"]
@@ -55,7 +67,11 @@ class TableModel(Strict):
 
 
 class DataPoint(Strict):
-    """Used for simple charts: bar/line/pie/donut. Label + value, both verbatim."""
+    """Used for simple charts: bar/line/pie/donut. Label + value, both verbatim.
+
+    `label` MUST be left empty when the value's owning series cannot be
+    determined - never guess an owner from legend order.
+    """
     label: str
     value: str
 
@@ -92,6 +108,10 @@ class FigureModel(Strict):
     kind: FigureKind
     caption: str = ""
     description: str = ""
+    # Whether printed values could be bound to the series that owns them. When
+    # this is "unavailable", neither `description` nor `data_points` may name a
+    # brand or series next to a value.
+    series_attribution: SeriesAttribution = "not_applicable"
     # For bar/line/pie/donut. Empty when chart values aren't explicitly printed.
     data_points: List[DataPoint] = Field(default_factory=list)
     # For scatter/bubble/heatmap/waterfall. Empty for simple charts and pure images.
@@ -158,11 +178,40 @@ Return ONE JSON object that matches the provided structured-output schema EXACTL
 Hard rules:
 1. Transcribe numbers EXACTLY as printed (no rounding, no unit conversion, keep commas/decimal as shown).
 2. Every KPI MUST include a verbatim `source_quote` taken from the page; if you cannot quote it, do not emit it.
-3. Charts:
-   - Bar / line / pie / donut: fill `data_points` ONLY when label AND value are explicitly printed. Otherwise leave `data_points` empty and rely on `description`.
-   - Scatter / bubble / heatmap / waterfall: use `axes` (label + unit per dimension) and `series[].points` (x, y, size, color as printed). Leave fields blank when not shown.
-   - Pure images / photos / logos / headshots / diagrams: set `kind` accordingly, fill `caption` and `description`, leave data_points/series empty.
+3. CHARTS - SERIES ATTRIBUTION IS THE HARDEST PART. Get it right, or declare that you cannot.
+   A printed value belongs to a series ONLY when the label sits ON, or immediately adjacent to,
+   that series' own line / bar / slice - or when the chart has a single series.
+   - LEGEND ORDER DOES NOT DETERMINE PLOT ORDER. Never pair the first legend entry with the
+     topmost line, the second with the next line, and so on. On a market-share chart the
+     highest line usually belongs to the MARKET LEADER, which is often a competitor, not the
+     brand the slide is about. This pairing mistake is the single most damaging error you can
+     make, because it silently reports a competitor's share as our brand's share.
+   - Bind by COLOUR / LINE STYLE: read the legend swatch, find the series drawn in that exact
+     colour and style, then read the value printed on THAT series.
+   - PLAUSIBILITY CHECK against the same page: if the page states a share level or a share
+     delta for a brand, a charted line far away from it is a DIFFERENT series. A page stating
+     "share vs PY +1%" for a brand at roughly 15-17% share cannot also show that brand at 33-37%.
+     When a charted level contradicts a stated level, you have mis-bound the series.
+   - If you cannot bind values confidently: set `series_attribution="unavailable"`, put the
+     values in `data_points` with `label=""`, leave `series` empty, and in `description` list the
+     values as unattributed - e.g. "endpoint labels printed: 64%, 51%, 27%, 22% (series ownership
+     not determinable from the image)". Do NOT name any brand next to a value in that case.
+   - If you can bind them: set `series_attribution="explicit"`, fill `series[].name` and
+     `series[].points`, and only then may `description` name a series alongside a value.
+   - Bar / line / pie / donut with a single series: `series_attribution="explicit"`, values in
+     `data_points`.
+   - Scatter / bubble / heatmap / waterfall: use `axes` (label + unit per dimension) and
+     `series[].points` (x, y, size, color as printed).
+   - Pure images / photos / logos / headshots / diagrams: set `kind` accordingly, fill `caption`
+     and `description`, leave data_points/series empty, `series_attribution="not_applicable"`.
 4. Preserve reading order in `markdown`. Use `##` for headings, `-` for bullets. Include footnotes inline as `[^1]` and footnote text at end.
+   MARKDOWN INHERITS THE ATTRIBUTION RULE: when a figure's `series_attribution` is "unavailable",
+   `markdown` must not name a brand or series next to a charted value either. Write
+   "chart endpoint labels: 64%, 51%, 27%, 22% (series not determinable)" rather than
+   "Kesimpta declining from 64% to 51%". A wrong attribution in `markdown` is indexed and
+   retrieved exactly like a wrong attribution in `figures`.
+   Footnotes that qualify a figure or table (denominator notes such as "represents B-Cell market
+   only", or "April numbers are projected") MUST be transcribed - they change what the number means.
 5. Set `is_forward_looking=true` for any page about guidance, outlook, ambition, targets, projections, or future approvals/launches.
 6. If the page is purely a forward-looking-statements / disclaimer / cover / agenda page, set `disclaimers_present=true` and pick the matching `page_kind`.
 7. Brands and compound codes: list ONLY those that actually appear on this page.

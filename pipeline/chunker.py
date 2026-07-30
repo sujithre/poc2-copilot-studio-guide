@@ -1495,6 +1495,13 @@ def render_figure(fig: dict) -> str:
         f"**{fig.get('caption','')}** ({fig.get('kind','figure')})",
         fig.get("description", ""),
     ]
+    # Say it out loud when the extractor could not tie values to their series, so
+    # a reader never assumes an unowned number belongs to the page's brand.
+    if (fig.get("series_attribution") or "") == "unavailable":
+        parts.append(
+            "NOTE: series ownership could not be determined for this chart - the values "
+            "below are NOT attributed to any brand or series."
+        )
     if dp:
         parts.append(f"Data points: {dp}")
     if axes_lines:
