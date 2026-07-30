@@ -9,15 +9,15 @@ beginDialog:
 
   actions:
     # ------------------------------------------------------------------
-    # 1. Capture the user's question ONCE. It is never rewritten.
+    # 1. Capture the question ONCE. It is never rewritten.
     #
-    # The previous version appended the clarifier answer to the search text
-    # ("...? for both eBC and mBC indications (overall)"). That changed what
-    # was retrieved: it pulled another brand's indication pages into the
-    # result set and pushed the correct figure out of the top 10 entirely.
-    # A clarification is an INSTRUCTION about how to answer, not part of the
-    # query. It is carried in Topic.Clarifier and injected into the
-    # instructions, never into userInput.
+    # Previously each clarifier appended its answer to the search text
+    # ("...? for both eBC and mBC indications (overall)"). Retrieval is
+    # text-driven, so that changed what came back: it pulled another brand's
+    # indication pages into the result set and pushed the correct figure out
+    # of the top ten. A clarification is an INSTRUCTION about how to answer,
+    # not part of the query. Every clarifier writes into Topic.Clarifier,
+    # which is injected into the instructions; userInput stays untouched.
     # ------------------------------------------------------------------
     - kind: SetVariable
       id: setOriginalQ
@@ -32,14 +32,14 @@ beginDialog:
       value: =""
 
     # ------------------------------------------------------------------
-    # 2. Ask about indication ONLY when the question is about a brand that
-    #    actually has multiple indications and has not already named one.
+    # 2. Indication - only when the question is about a brand reported by
+    #    indication and has not already named one.
     #
-    # This used to be the catch-all `elseActions` of the whole topic, so it
-    # fired for every question that was not a trend question - including
-    # questions about brands that have no breast-cancer indication at all.
-    # There is no elseActions here on purpose: when the condition does not
-    # match, flow simply continues to the single answer step below.
+    # This used to be the catch-all elseActions of the whole topic, so it
+    # fired for every question that was not a trend question, including
+    # brands with no breast-cancer indication at all. None of the three
+    # ConditionGroups below has an elseActions: an unmatched condition falls
+    # straight through to the single answer step.
     # ------------------------------------------------------------------
     - kind: ConditionGroup
       id: maybeAskIndication
@@ -47,14 +47,8 @@ beginDialog:
       conditions:
         - id: askIndication
           condition: |-
-            =("kisqali" in Topic.OriginalQ)
-            And Not("ebc" in Topic.OriginalQ)
-            And Not("mbc" in Topic.OriginalQ)
-            And Not("early breast" in Topic.OriginalQ)
-            And Not("metastatic" in Topic.OriginalQ)
-            And Not("pan-indication" in Topic.OriginalQ)
-            And Not("both" in Topic.OriginalQ)
-            And Not("overall" in Topic.OriginalQ)
+            =IsMatch(Lower(Topic.OriginalQ), "kisqali|breast cancer", MatchOptions.Contains)
+            And Not(IsMatch(Lower(Topic.OriginalQ), "ebc|mbc|early breast|metastatic|pan-indication|both|overall", MatchOptions.Contains))
           actions:
             - kind: Question
               id: questionIndication
@@ -79,8 +73,48 @@ beginDialog:
                 =Topic.Clarifier & "INDICATION SCOPE CHOSEN BY THE USER: " & Text(Topic.IndicationChoice) & ". Restrict the answer to that indication; if the user chose both or overall, lead with the pan-indication total and then split by indication. "
 
     # ------------------------------------------------------------------
-    # 3. Ask about period basis ONLY for a trend question that has not
-    #    already stated its basis. Also a gated branch, not a fallback.
+    # 3. Measurement basis - only for a gained/lost/gainers question that has
+    #    not already stated a basis. Skipped when the indication clarifier
+    #    already ran, so the user is never asked two things at once.
+    #
+    # This matters because the two bases can disagree: a brand can outperform
+    # a falling market while its own volume declines.
+    # ------------------------------------------------------------------
+    - kind: ConditionGroup
+      id: maybeAskMeasureBasis
+      displayName: Measurement basis needed?
+      conditions:
+        - id: askMeasureBasis
+          condition: |-
+            =IsMatch(Lower(Topic.OriginalQ), "gained or lost|gain or lose|gained/lost|gained share|lost share|gaining or losing|gain or loss|win or lose|gainer|gainers|top gainers|share gainers|top share|rank gainers|who gained|which brands gained", MatchOptions.Contains)
+            And Not(IsMatch(Lower(Topic.OriginalQ), "kisqali|breast cancer", MatchOptions.Contains))
+            And Not(IsMatch(Lower(Topic.OriginalQ), "absolute|percentage point|percentage-point|pp change|benchmark|relative to market|vs market growth", MatchOptions.Contains))
+          actions:
+            - kind: Question
+              id: questionMeasureBasis
+              interruptionPolicy:
+                allowInterruption: true
+              alwaysPrompt: true
+              variable: Topic.MeasureReply
+              prompt: |-
+                Quick check - how should I measure "gained or lost" share? Reply 1 or 2 (or "absolute" / "benchmark"):
+                1. Absolute share change (percentage-point change vs PY / vs TGT)
+                2. Growth vs market benchmark (product growth relative to market growth)
+              entity: StringPrebuiltEntity
+
+            - kind: SetVariable
+              id: setMeasureScope
+              displayName: Record measurement basis
+              variable: Topic.Clarifier
+              value: |-
+                =Topic.Clarifier & If(
+                    IsMatch(Lower(Topic.MeasureReply), "1|absolute|percentage|pp|point", MatchOptions.Contains), "MEASUREMENT BASIS CHOSEN BY THE USER: ABSOLUTE share-point change (vs PY and vs TGT). Lead with that basis and name it. ",
+                    IsMatch(Lower(Topic.MeasureReply), "2|benchmark|growth|relative|market", MatchOptions.Contains), "MEASUREMENT BASIS CHOSEN BY THE USER: GROWTH VS MARKET BENCHMARK (product growth minus market growth, in points). Lead with that basis and name it. ",
+                    "MEASUREMENT BASIS: the user did not pick one - show BOTH the absolute share-point change and the growth-vs-market benchmark, clearly separated. "
+                )
+
+    # ------------------------------------------------------------------
+    # 4. Period basis - only for a trend question that has not stated one.
     # ------------------------------------------------------------------
     - kind: ConditionGroup
       id: maybeAskPeriodBasis
@@ -88,14 +122,8 @@ beginDialog:
       conditions:
         - id: askPeriodBasis
           condition: |-
-            =(("trend" in Topic.OriginalQ)
-              Or ("last 3 periods" in Topic.OriginalQ)
-              Or ("last three" in Topic.OriginalQ)
-              Or ("lately" in Topic.OriginalQ))
-            And Not("r3m" in Topic.OriginalQ)
-            And Not("rolling" in Topic.OriginalQ)
-            And Not("trailing" in Topic.OriginalQ)
-            And Not("calendar month" in Topic.OriginalQ)
+            =IsMatch(Lower(Topic.OriginalQ), "trend|last 3 periods|last three|lately", MatchOptions.Contains)
+            And Not(IsMatch(Lower(Topic.OriginalQ), "r3m|rolling|trailing|calendar month", MatchOptions.Contains))
           actions:
             - kind: Question
               id: questionPeriodBasis
@@ -116,21 +144,20 @@ beginDialog:
               displayName: Record period basis
               variable: Topic.Clarifier
               value: |-
-                =Topic.Clarifier & "PERIOD BASIS CHOSEN BY THE USER: " & Text(Topic.BasisChoice) & ". Use that basis and say which one you used. "
+                =Topic.Clarifier & "PERIOD BASIS CHOSEN BY THE USER: " & Text(Topic.BasisChoice) & ". Use that basis and name it. "
 
     # ------------------------------------------------------------------
-    # 4. ONE answer step, ONE set of instructions.
+    # 5. ONE answer step, ONE set of instructions.
     #
-    # There used to be four copies of these instructions across four
-    # branches, and they had drifted apart: the two branches reachable by a
-    # plain "did X gain or lose share" question were missing the rule that
-    # stops a sub-population figure being reported as the whole-market read.
-    # Any rule that lives in only one branch protects only the questions
-    # that happen to land there.
+    # There used to be five copies across five branches and they had drifted:
+    # the branches a plain "did X gain or lose share" question could reach
+    # were missing the rule that stops a sub-population figure being reported
+    # as the whole-market read - the exact rule that failure needed. A rule
+    # that lives in one branch protects only the questions that land there.
     #
-    # The rules below are keyed on properties of the data (whose number,
-    # which population, which period) rather than on named brands or worked
-    # examples, so a new brand or a new deck inherits them unchanged.
+    # The rules are keyed on properties of the data - whose number, which
+    # population, which period, which denominator - rather than on named
+    # brands or worked examples, so a new brand or deck inherits them.
     # ------------------------------------------------------------------
     - kind: SearchAndSummarizeContent
       id: answerProductStrategy
@@ -141,8 +168,9 @@ beginDialog:
         You answer questions about US brand performance metrics (NBRx, TRx, NRx, market
         share, patient acquisition) and brand commercial tactics, ONLY from the retrieved
         Product Strategy content (US Monthly Performance Report and US Weekly Performance
-        Pulse). Assume US geography and state that assumption. Dollar figures (Net Sales)
-        are not in this source - say they belong to Financial Results and stop.
+        Pulse). Write like a senior commercial analyst. Assume US geography and state that
+        assumption. Dollar figures (Net Sales) are not in this source - say they belong to
+        Financial Results and stop.
 
         ### READING A PASSAGE
         Every number has three coordinates. Establish all three before you use it:
@@ -151,39 +179,70 @@ beginDialog:
         2. WHAT POPULATION is it measured over - the whole market, or a sub-population such
            as an HCP audience, a line of therapy, a single indication, or an acquisition
            channel? If the figure names one of those, it is a sub-population figure.
-        3. WHICH PERIOD does it cover, and is that the passage's own current period or an
-           older trailing window quoted for context?
-        A passage may open with a scope banner (for example "YEAR-TO-DATE figures" or
-        "SINGLE-MONTH figures"). It governs every number in that passage.
+        3. WHICH PERIOD does it cover, and is that the passage's current period or an older
+           trailing window quoted for context?
+        A passage may open with a scope banner ("YEAR-TO-DATE figures", "SINGLE-MONTH
+        figures"). It governs every number in that passage.
 
-        ### ANSWERING
+        ### MEASUREMENT BASIS - "gained or lost share"
+        Two bases exist and they can disagree:
+        - ABSOLUTE: the stated share-point change vs PY and vs TGT.
+        - GROWTH VS MARKET BENCHMARK: product growth minus market growth, in points. A brand
+          can outperform a falling market while its own volume declines, so a falling
+          absolute number is never on its own evidence of lost share.
+        If a basis was chosen for you above, use it and name it. If not, show both when both
+        are available.
+
+        ### SHOW IT AS A TABLE
+        Any answer spanning more than one metric, market or period MUST include a table.
+        Title it with the brand and the denominator it covers. Choose the columns that make
+        the comparison explicit:
+        - benchmark basis: Product | Period | Product growth | Market growth | Difference (pts)
+        - absolute basis:  Product | Period | Metric | Market / denominator | Level | vs PY | vs TGT
+        - metric lookup:   Product | Period | Metric | Market / denominator | Value
+        One period per row. Never put two values in one cell. Follow the table with one
+        sentence saying what it means, then any reference cuts.
+
+        ### WHICH CUTS TO SHOW, AND IN WHAT ORDER
+        1. If the source reports the brand BY INDICATION, lead with the indication split, and
+           give the pan-indication total first when one is stated.
+        2. Otherwise show every metric the source reports (NBRx, then TRx) against every
+           market / denominator it reports - the TOTAL market first, then any narrower
+           sub-market - so the same metric is visible in both denominators.
+        3. Then sub-population cuts (audience, line of therapy, channel), each labelled with
+           its population and period.
+        4. Then anything chart-derived, labelled approximate.
+        Say explicitly when a cut the reader would expect is not stated in the source.
+
+        ### RULES THAT OVERRIDE STYLE
         - Lead with the WHOLE-MARKET figure for the most recent period available, and answer
-          the actual question in the first sentence.
-        - Add sub-population figures and older windows afterwards, each labelled with its
-          population and its period.
-        - A sub-population movement NEVER sets the headline direction. If the only figure you
-          have is a sub-population one, say so plainly instead of generalising from it.
+          the actual question in the first sentence. If any passage states a total-market
+          share-versus-prior-year delta, it belongs in that first sentence. Lead with a
+          sub-population delta ONLY when no total-market delta exists in the passages, and
+          say that is what you are doing.
+        - A sub-population movement NEVER sets the headline direction.
         - Name the denominator for every share figure. A share percentage without its market
           named is unusable - do not quote one.
-        - Never infer direction from an absolute value alone. A brand can gain share while its
-          own volume falls, if the market falls faster. When a passage gives both brand growth
-          and market growth, state the difference in points.
+        - Give LEVELS as well as deltas: "share 15.5% (+1.9 pts vs PY)", never just the delta.
         - Some passages list chart labels WITHOUT saying which series they belong to. Never
           attach such a value to a brand. Mention them only if asked about the chart, and then
           present them as unattributed.
-        - When two passages disagree, prefer the one that states a figure over one that reads
-          it off a chart, and the more recent period over the older one. Say that you did.
+        - When two passages disagree, prefer a stated figure over one read off a chart, and
+          the more recent period over the older one. Say that you did.
+
+        ### RANKING ACROSS BRANDS
+        Rank only Novartis brands; competitors are market context and are never ranked as our
+        gainers. Scan every brand that has a stated delta rather than stopping at the largest.
+        Show the ranking as a table on the chosen basis, and add a short "Not rankable from
+        this source" list naming the brands that lack a stated delta and showing their current
+        levels so the reader can see why.
 
         ### GROUNDING
         - Quote stated figures verbatim, with units and sign.
         - Open with one line naming the report(s) and the data-through period you used.
-        - If the retrieved passages do not answer the question, say so and name what is
-          missing. Never substitute a nearby number for the one that was asked for.
+        - If the passages do not answer the question, say so and name what is missing. Never
+          substitute a nearby number for the one that was asked for.
         - Cite every page used.
-
-        ### STYLE
-        Write like a senior commercial analyst: quantified, specific, no hedging, no restating
-        the question. Answer first, evidence second, caveats last.
 
         {Topic.Clarifier}
         Question: {Topic.OriginalQ}
