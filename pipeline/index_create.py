@@ -83,6 +83,18 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
         # period tables float above narrower brand-dedicated slides. Boosted by
         # the 'authority' magnitude function in the scoring profile below.
         SimpleField(name="authority_boost",   type=SearchFieldDataType.Int32, filterable=True, sortable=True),
+        # ---- population + period currency of THIS chunk (set by the chunker).
+        # segment_level distinguishes a whole-market read from a sub-population
+        # cut (an HCP audience, a line of therapy, an indication, a channel);
+        # is_headline_period marks whether the chunk measures the document's most
+        # recent period or an older trailing window. evidence_boost combines them
+        # with chunk_type so the defensible headline read outranks the fragments
+        # mined out of it. All three are content-derived, so a new deck or brand
+        # inherits the behaviour with no edits.
+        SimpleField(name="segment_level",      type=SearchFieldDataType.String, filterable=True, facetable=True),
+        SimpleField(name="segment_name",       type=SearchFieldDataType.String, filterable=True, facetable=True),
+        SimpleField(name="is_headline_period", type=SearchFieldDataType.Boolean, filterable=True),
+        SimpleField(name="evidence_boost",     type=SearchFieldDataType.Int32, filterable=True, sortable=True),
         SimpleField(name="has_comments",      type=SearchFieldDataType.Boolean, filterable=True),
         # ---- chunk-level
         SimpleField(name="chunk_type",        type=SearchFieldDataType.String, filterable=True, facetable=True),
@@ -218,11 +230,58 @@ def index_def(name: str, aoai_endpoint: str, embed_deployment: str, embed_model:
                 ),
             ],
         ),
+        # Product-strategy precedence: same recency + source-class behaviour as
+        # `recency-boost`, PLUS an evidence-quality magnitude. Brand performance
+        # pages emit a page-level summary alongside many derived fragments (one
+        # KPI row per printed figure, one chunk per chart). Without this, the
+        # short fragments win lexically and the model can be handed a set that is
+        # dominated by a single sub-population cut or by chart values whose
+        # series attribution was never verified. evidence_boost restores the
+        # order: whole-market current narrative > whole-market current KPI >
+        # sub-population / older window > unverified chart. Kept as its own
+        # profile so the finance and external tunings are untouched.
+        ScoringProfile(
+            name="product-evidence",
+            functions=[
+                MagnitudeScoringFunction(
+                    field_name="evidence_boost",
+                    boost=5.0,
+                    parameters=MagnitudeScoringParameters(
+                        boosting_range_start=0,
+                        boosting_range_end=3,
+                        should_boost_beyond_range_by_constant=True,
+                    ),
+                    interpolation="linear",
+                ),
+                MagnitudeScoringFunction(
+                    field_name="authority_boost",
+                    boost=4.0,
+                    parameters=MagnitudeScoringParameters(
+                        boosting_range_start=0,
+                        boosting_range_end=3,
+                        should_boost_beyond_range_by_constant=True,
+                    ),
+                    interpolation="linear",
+                ),
+                FreshnessScoringFunction(
+                    field_name="recency_date",
+                    boost=2.0,
+                    parameters=FreshnessScoringParameters(boosting_duration="P730D"),
+                    interpolation="linear",
+                ),
+            ],
+        ),
     ]
 
     # External messaging is ordered by source class (IR > Quarterly), so it uses
-    # the freshness-free profile. Every other index keeps recency (latest wins).
-    default_profile = "external-authority" if logical == "external_messages" else "recency-boost"
+    # the freshness-free profile. Product strategy adds chunk-level evidence
+    # quality. Every other index keeps plain recency (latest wins).
+    if logical == "external_messages":
+        default_profile = "external-authority"
+    elif logical == "product_strategy":
+        default_profile = "product-evidence"
+    else:
+        default_profile = "recency-boost"
 
     return SearchIndex(
         name=name,

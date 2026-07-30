@@ -50,6 +50,114 @@ INFOGRAPHIC_KINDS = {"infographic"}
 
 META_PAGE_KINDS = {"cover", "disclaimer", "agenda", "toc", "references"}
 
+# Logical index whose retrieval behaviour the brand-performance changes target.
+# Everything gated on this constant is a no-op for financial_results and
+# external_messages.
+PRODUCT_STRATEGY_INDEX = "product_strategy"
+
+
+# ---------------------------------------------------------------------------
+# Denominator / sub-population classification
+# ---------------------------------------------------------------------------
+# A metric is only interpretable together with the population it is measured
+# over. "share -0.7pts" and "share +1.9pts" can BOTH be true for the same brand
+# in the same deck when one is a sub-population (an HCP audience, a line of
+# therapy, one indication) and the other is the total market.
+#
+# This is brand-agnostic on purpose: the vocabulary is DISCOVERED from the
+# corpus by discover_segments.py and stored in manifest.segment_registry, the
+# same way brand_registry works. Nothing here hardcodes a brand or a disease.
+#
+# manifest.segment_registry shape:
+#   { "<canonical>": {"aliases": [...], "kind": "audience|line|indication|channel|market"} }
+
+class SegmentRegistry:
+    """Canonicalize sub-population descriptors found in KPI basis/scope/section text.
+
+    A chunk is `total` unless a registered segment alias appears in the text that
+    describes WHAT the number is measured over. Sub-population chunks are still
+    indexed and retrievable - they are simply not allowed to masquerade as the
+    headline read for the whole market.
+    """
+
+    def __init__(self, manifest: dict):
+        self._alias_to_canonical: dict[str, str] = {}
+        self._kind: dict[str, str] = {}
+        registry = (manifest or {}).get("segment_registry") or {}
+        for canonical, spec in registry.items():
+            spec = spec or {}
+            self._kind[canonical] = spec.get("kind", "") or ""
+            for alias in [canonical, *(spec.get("aliases") or [])]:
+                a = str(alias).strip().lower()
+                if a:
+                    self._alias_to_canonical[a] = canonical
+        # Longest alias first so "b-cell generalist" beats "b-cell".
+        self._ordered = sorted(self._alias_to_canonical, key=len, reverse=True)
+
+    @property
+    def all_canonical(self) -> list[str]:
+        return sorted(set(self._alias_to_canonical.values()))
+
+    def detect(self, *texts: str) -> str:
+        """Return the canonical segment named in any of `texts`, or '' for total."""
+        haystack = " ".join(t for t in texts if t).lower()
+        if not haystack:
+            return ""
+        for alias in self._ordered:
+            if re.search(rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", haystack):
+                return self._alias_to_canonical[alias]
+        return ""
+
+    def kind(self, canonical: str) -> str:
+        return self._kind.get(canonical, "")
+
+
+def classify_segment(segments: "SegmentRegistry", *texts: str) -> tuple[str, str]:
+    """-> (segment_level, segment_name). segment_level is 'total' or 'subsegment'."""
+    name = segments.detect(*texts)
+    return ("subsegment", name) if name else ("total", "")
+
+
+# ---------------------------------------------------------------------------
+# Period currency
+# ---------------------------------------------------------------------------
+# Purely computed - no domain knowledge. The document's headline period is the
+# latest period it reports on; anything measured over an earlier window is
+# historical context, not the current read.
+
+def doc_headline_period_end(pages: list[dict]) -> str:
+    """Latest period_end_date (YYYY-MM-DD) implied by any page or KPI of the doc.
+
+    Falls back to dates derived from each page's fiscal_period / period_label so
+    that extractions without structured period fields still get a headline.
+    """
+    best = ""
+    for page in pages or []:
+        candidates = [
+            page.get("period_end_date", ""),
+            derive_period_end_date(page.get("fiscal_period", ""), {}),
+            period_end_from_label(page.get("period_label", "")),
+        ]
+        for kp in page.get("kpis") or []:
+            candidates.append(kp.get("period_end_date", ""))
+        for candidate in candidates:
+            c = (candidate or "").strip()
+            if len(c) == 10 and c > best:
+                best = c
+    return best
+
+
+def is_headline_period(period_end_date: str, headline_end: str) -> bool:
+    """True when this chunk measures the document's most recent period.
+
+    Unknown periods are treated as headline (neutral) so missing metadata never
+    silently demotes a chunk; only a KNOWN older window is demoted.
+    """
+    ped = (period_end_date or "").strip()
+    if not headline_end or len(ped) != 10:
+        return True
+    return ped >= headline_end
+
 
 # Common false positives we never want to capture as brand mentions
 _BRAND_STOPWORDS = {
@@ -323,6 +431,34 @@ def _product_authority(doc_type: str) -> int:
     return _PRODUCT_AUTHORITY_BY_DOC_TYPE.get(doc_type, 0)
 
 
+# --- Evidence trust (chunk-level, orthogonal to authority_boost above).
+# authority_boost answers "which DOCUMENT wins". evidence_boost answers "which
+# CHUNK of that document is the defensible headline read". Kept as a separate
+# field so the finance / external tunings are untouched.
+#
+#   3  narrative or tabular chunk, total population, current period
+#   2  single KPI row, total population, current period
+#   1  sub-population OR an older window (valid, but supplementary)
+#   0  chart-derived values whose series attribution is not verifiable
+#
+# Entirely structural: no brand, disease or page number appears here, so a new
+# deck or a new brand inherits the same precedence with no edits.
+_NARRATIVE_CHUNK_TYPES = frozenset({
+    "slide", "prose", "bullet_list", "quote", "table", "table_row",
+})
+_UNVERIFIED_CHUNK_TYPES = frozenset({"chart", "figure", "image", "infographic"})
+
+
+def evidence_boost(chunk_type: str, segment_level: str, headline_period: bool) -> int:
+    if chunk_type in _UNVERIFIED_CHUNK_TYPES:
+        return 0
+    if segment_level == "subsegment" or not headline_period:
+        return 1
+    if chunk_type in _NARRATIVE_CHUNK_TYPES:
+        return 3
+    return 2
+
+
 def stable_id(*parts: str) -> str:
     raw = "::".join(p for p in parts if p)
     return hashlib.sha1(raw.encode()).hexdigest()[:20]
@@ -383,6 +519,36 @@ def derive_period_end_date(fiscal_period: str, doc: dict) -> str:
         if 1 <= mo <= 12:
             return f"{y:04d}-{mo:02d}-{d:02d}"
     return ""
+
+
+_MONTH_NUM = {
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+    "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+# "Nov'25", "Jan’26", "March 2026", "Mar '26", "Sept. 2025"
+_LABEL_MONTH_RE = re.compile(
+    r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*[’'`\u2019]?\s*(\d{4}|\d{2})",
+    re.IGNORECASE,
+)
+
+
+def period_end_from_label(label: str) -> str:
+    """End date (YYYY-MM-DD) implied by a free-text period label.
+
+    Decks label sub-windows in prose ("Nov'25-Jan'26", "R3M Mar '26") that carry
+    no structured period_end_date. Taking the LAST month named in the label gives
+    the window's end, which is what decides whether the figure is the current
+    read or historical context. Returns '' when no month/year is named.
+    """
+    matches = _LABEL_MONTH_RE.findall(label or "")
+    if not matches:
+        return ""
+    mon_txt, yr_txt = matches[-1]
+    mo = _MONTH_NUM[mon_txt[:3].lower()]
+    yr = int(yr_txt)
+    if yr < 100:
+        yr += 2000
+    return f"{yr:04d}-{mo:02d}-{_last_day(yr, mo):02d}"
 
 
 def _comparison_to_basis(text: str) -> list[str]:
@@ -730,7 +896,18 @@ def kpi_meta_override(meta: dict, kp: dict) -> dict:
     cb = kp.get("comparison_basis") or _comparison_to_basis(kp.get("comparison", ""))
     if cb:
         m["comparison_basis"] = cb
-    ped = kp.get("period_end_date") or derive_period_end_date(m.get("fiscal_period", ""), {})
+    # Period currency of THIS cell. Prefer a structured date; otherwise date the
+    # window from its own printed label ("Nov’25-Jan’26" -> 2026-01-31) so an
+    # older trailing window cannot inherit the page's current period.
+    #
+    # SCOPED to product_strategy: period_end_date feeds recency_date and therefore
+    # the freshness ranking, so financial_results / external_messages keep their
+    # existing derivation untouched.
+    ped = (kp.get("period_end_date") or "").strip()
+    if not ped and m.get("_is_product"):
+        ped = period_end_from_label(kp.get("period", ""))
+    if not ped:
+        ped = derive_period_end_date(m.get("fiscal_period", ""), {})
     if ped:
         m["period_end_date"] = ped
     return m
@@ -831,6 +1008,13 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         # "Contribution to growth" net-sales twin so emit_text can demote it
         # below the authoritative PVM / W-S-SIT grid for the same period.
         "_grid_demote": _is_growth_contribution_twin(page_obj),
+        # Private: consumed by emit_text to decide is_headline_period, then
+        # dropped. Set once per document in main() from the vision pages.
+        "_headline_period_end": doc.get("_headline_period_end", "") or "",
+        # Private: True only for docs routed to the product_strategy index, so
+        # brand-performance behaviour cannot leak into financial_results or
+        # external_messages. Dropped by emit_text.
+        "_is_product": doc.get("primary_index", "") == PRODUCT_STRATEGY_INDEX,
         "has_comments": bool(page_obj.get("has_comments", False)),
         "therapeutic_area": ta,
         "brand": canonical_brands,
@@ -1065,7 +1249,8 @@ def _serving_shadow_kpi(page_meta: dict, kpi_meta: dict, kp: dict):
 
 
 def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
-              section_path: list[str] | None = None) -> dict:
+              section_path: list[str] | None = None,
+              segment_level: str = "total", segment_name: str = "") -> dict:
     # id is derived from the ORIGINAL text so prepending the scope banner never
     # changes chunk ids - re-upload updates the row in place (no orphaned twins).
     cid = stable_id(meta["doc_id"], str(meta["page"]), chunk_type, section, text[:80])
@@ -1084,6 +1269,16 @@ def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
     # Strip the private twin-demote flag so it never reaches the index (it is an
     # internal signal only; capture its value first for the financial branch).
     demote_grid = bool(out.pop("_grid_demote", False))
+    # Population + period currency travel WITH the number, so a sub-population or
+    # a stale window can never be presented as the headline market read. Both are
+    # private inputs; only the derived public fields are indexed.
+    headline_end = out.pop("_headline_period_end", "")
+    out.pop("_is_product", None)
+    headline = is_headline_period(out.get("period_end_date", ""), headline_end)
+    out["segment_level"] = segment_level
+    out["segment_name"] = segment_name
+    out["is_headline_period"] = headline
+    out["evidence_boost"] = evidence_boost(chunk_type, segment_level, headline)
     # Authority precedence. External-messaging docs (IR Notes / Quarterly Update)
     # rank by SOURCE CLASS; product-strategy docs (Monthly / Weekly Performance)
     # rank by SOURCE CLASS too (Monthly > Weekly); all other docs keep the
@@ -1124,11 +1319,17 @@ def table_to_markdown(t: dict) -> str:
 # Generic page chunker (used for everything except IR notes)
 # ---------------------------------------------------------------------------
 
-def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterable[tuple[str, dict]]:
+def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry,
+                     segments: SegmentRegistry | None = None) -> Iterable[tuple[str, dict]]:
     """Yield (target_index, chunk) tuples for one page."""
     primary = doc["primary_index"]
     pk = page_obj.get("page_kind", "")
     meta = base_metadata(doc, page_obj, brands)
+    segments = segments or SegmentRegistry({})
+    # Behaviour introduced for brand-performance decks is gated on the TARGET
+    # INDEX so financial_results and external_messages keep their existing,
+    # separately-tuned behaviour.
+    is_product_doc = primary == PRODUCT_STRATEGY_INDEX
 
     # Meta routing - cover / disclaimer / agenda / toc / references
     if pk in META_PAGE_KINDS:
@@ -1138,6 +1339,11 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
         return
 
     # Slide / prose body
+    #
+    # NOTE: the narrative body is deliberately classified as `total`, even when
+    # it discusses sub-populations. A page-level summary is the whole picture -
+    # it is exactly the chunk that must outrank the individual sub-population
+    # rows mined out of it. Segment classification applies to the DERIVED rows.
     md = page_obj.get("markdown") or ""
     if md.strip():
         figures_text = ""
@@ -1167,13 +1373,23 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
             kvs = ", ".join(f"{c}={v}" for c, v in zip(cols, r))
             row_text = (f"{t.get('caption','')} - {kvs}").strip(" -")
             rmeta = narrow_meta_brand(meta, _row_brand(cols, r))
-            yield primary, emit_text(rmeta, "table_row", row_text, section=t.get("caption", ""))
+            r_level, r_name = classify_segment(segments, t.get("caption", ""), row_text)
+            yield primary, emit_text(rmeta, "table_row", row_text, section=t.get("caption", ""),
+                                     segment_level=r_level, segment_name=r_name)
 
     # Figures -> chart / image / infographic / figure depending on kind
     page_has_table = bool(page_obj.get("tables"))
     # The narrative body already carries the numbers when it lists vs-PY rows
     # (some grid slides render as a bullet list instead of a table).
-    narrative_has_data = ("vs PY" in md) or ("vs. PY" in md)
+    #
+    # Brand performance decks write "Growth Vs PY" as often as "growth vs PY",
+    # and the case-sensitive test silently let unverified chart chunks through.
+    # SCOPED to product_strategy so financial_results matching stays as tuned.
+    if is_product_doc:
+        md_probe = md.lower()
+        narrative_has_data = ("vs py" in md_probe) or ("vs. py" in md_probe)
+    else:
+        narrative_has_data = ("vs PY" in md) or ("vs. PY" in md)
     for fig in page_obj.get("figures", []):
         ct = figure_chunk_type(fig.get("kind", "other"))
         # A chart that merely visualizes a table/narrative on the SAME page is
@@ -1187,10 +1403,30 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
         if ct == "chart" and (page_has_table or narrative_has_data):
             continue
         text = render_figure(fig)
-        yield primary, emit_text(meta, ct, text, section=fig.get("caption", ""))
+        f_level, f_name = classify_segment(segments, fig.get("caption", ""))
+        yield primary, emit_text(meta, ct, text, section=fig.get("caption", ""),
+                                 segment_level=f_level, segment_name=f_name)
 
     # KPI rows (one chunk per KPI for fine-grained retrieval / agent grounding)
+    #
+    # One printed sentence often yields several KPI records ("share +2.3pts vs
+    # TGT (+1.9pts vs PY), TRx share +0.2pts vs TGT (+2.1pts vs PY)" -> 4 rows,
+    # all quoting the same sentence). Indexing every one of them multiplies that
+    # sentence's weight in the retrieved set, so whichever direction it happens
+    # to state drowns out the rest of the page. Emit the first row per distinct
+    # source_quote and let its text carry the full sentence.
+    #
+    # SCOPED to product_strategy: the financial brand x period grid deliberately
+    # emits one KPI per cell and cells can share a footnote-style quote, so
+    # de-duplicating there would drop real figures.
+    seen_quotes: set[str] = set()
     for kp in page_obj.get("kpis", []) or []:
+        if is_product_doc:
+            quote_key = " ".join((kp.get("source_quote") or "").split()).lower()
+            if quote_key:
+                if quote_key in seen_quotes:
+                    continue
+                seen_quotes.add(quote_key)
         kmeta = kpi_meta_override(meta, kp)
         if _brand_cleared(meta, kmeta):
             # Ambiguous per-brand matrix cell that lost its brand: skip so it
@@ -1206,7 +1442,14 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry) -> Iterab
         if combined:
             text = f"[{combined}] {text}"
         text = _prefix_kpi_brand(kmeta, text)
-        yield primary, emit_text(kmeta, "kpi_row", text, section=kp.get("name", ""))
+        # The population is described by the KPI's own descriptor fields, never
+        # by the surrounding narrative - that is what keeps an audience / line of
+        # therapy / indication cut from being read as the whole-market number.
+        k_level, k_name = classify_segment(
+            segments, kp.get("basis", ""), kp.get("scope", ""), kp.get("name", ""),
+        )
+        yield primary, emit_text(kmeta, "kpi_row", text, section=kp.get("name", ""),
+                                 segment_level=k_level, segment_name=k_name)
         shadow = _serving_shadow_kpi(meta, kmeta, kp)
         if shadow is not None:
             yield primary, shadow
@@ -1430,8 +1673,10 @@ def main() -> None:
 
     manifest = load_manifest()
     brands = BrandRegistry(manifest)
+    segments = SegmentRegistry(manifest)
     ir_detector = IRNotesSectionDetector(manifest)
     print(f"Brand registry: {brands.all_canonical}")
+    print(f"Segment registry: {segments.all_canonical}")
     print(f"IR parts loaded: {[p.get('id') for p in ir_detector.parts]}")
 
     index_files: dict[str, Path] = {name: chunks_dir / f"{name}.jsonl" for name in manifest["indices"]}
@@ -1462,6 +1707,11 @@ def main() -> None:
             for f in sorted(vision_dir.glob("page*.json"))
         ]
 
+        # The document's most recent reported period. Every chunk compares its
+        # own period against this, so an older trailing window is marked as
+        # historical rather than competing with the current read.
+        doc = {**doc, "_headline_period_end": doc_headline_period_end(pages)}
+
         # Pick the right per-doc path
         if doc.get("doc_type") == "ir_notes":
             ir_state = build_ir_part_state(pages, ir_detector)
@@ -1478,7 +1728,7 @@ def main() -> None:
             chunk_iter = (
                 pair
                 for page_obj in pages
-                for pair in chunks_from_page(doc, page_obj, brands)
+                for pair in chunks_from_page(doc, page_obj, brands, segments)
             )
 
         emitted = 0
