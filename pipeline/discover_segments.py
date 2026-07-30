@@ -101,6 +101,33 @@ def _brand_aliases(manifest: dict) -> set[str]:
     return known
 
 
+def _brand_candidate_tokens(kpi_dir) -> set[str]:
+    """Tokens already flagged as possible BRANDS by discover_brands.py.
+
+    Most competitor brands in a performance deck are not registered yet (a fresh
+    corpus can surface hundreds), and an unregistered brand name looks exactly
+    like an unregistered population descriptor. Excluding whatever brand
+    discovery already proposed keeps the two review lists from overlapping.
+    Silently returns an empty set when discover_brands.py has not been run.
+    """
+    path = kpi_dir / "brand_candidates.json"
+    if not path.exists():
+        return set()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    items = data.get("candidates") if isinstance(data, dict) else data
+    out: set[str] = set()
+    for item in items or []:
+        name = item.get("candidate") or item.get("name") or "" if isinstance(item, dict) else str(item)
+        for tok in str(name).split():
+            t = tok.strip("-/+,.()").lower()
+            if t:
+                out.add(t)
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--min-mentions", type=int, default=2)
@@ -111,7 +138,8 @@ def main() -> int:
     p = paths()
     chunks_dir = p["chunks"]
     known = _known_aliases(manifest)
-    brands = _brand_aliases(manifest)
+    brands = _brand_aliases(manifest) | _brand_candidate_tokens(p["kpi"])
+    print(f"excluding {len(brands)} brand tokens (registry + brand_candidates.json)")
 
     index_names = list(manifest["indices"])
     if args.only:
