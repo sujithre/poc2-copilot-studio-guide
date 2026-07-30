@@ -72,7 +72,14 @@ _MEASURE_WORDS = {
     "contribution", "vs", "versus", "change", "changes", "count", "avg",
     "average", "figure", "figures", "chart", "charts", "table", "tables",
     "metric", "metrics", "kpi", "kpis", "performance", "summary", "overview",
-    "dollars", "usd", "eur", "sit", "doh", "gtn", "pvm",
+    "dollars", "usd", "bnusd", "eur", "sit", "doh", "gtn", "pvm",
+    # planning / commentary vocabulary seen across the real corpus
+    "peak", "impact", "timing", "top", "size", "bridge", "estimated", "expected",
+    "guidance", "goal", "goals", "risk", "risks", "major", "minor", "underlying",
+    "key", "core", "driver", "drivers", "penetration", "reach", "coverage",
+    "execution", "corporate", "commercial", "business", "launch", "study",
+    "studies", "trial", "trials", "category", "categories", "tier", "tiers",
+    "fte", "ftes", "nocc", "opex", "cost", "costs", "margin",
 }
 _PERIOD_WORDS = {
     "ytd", "mtd", "qtd", "r3m", "r4w", "rolling", "trailing", "month", "monthly",
@@ -216,6 +223,11 @@ def main() -> int:
             print(f"Unknown index '{args.only}'. Choose from: {index_names}")
             return 2
         index_names = [args.only]
+    else:
+        print("WARNING: no --only given, so every index is mined at once. Finance and")
+        print("         external-messaging descriptors will dominate the ranking and bury")
+        print("         the brand-performance populations. Prefer:")
+        print("           python discover_segments.py --only product_strategy")
     wanted_docs = {d for d, idx in doc_index.items() if idx in index_names}
 
     print(f"indices   : {index_names}")
