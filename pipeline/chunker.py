@@ -68,8 +68,14 @@ PRODUCT_STRATEGY_INDEX = "product_strategy"
 # corpus by discover_segments.py and stored in manifest.segment_registry, the
 # same way brand_registry works. Nothing here hardcodes a brand or a disease.
 #
-# manifest.segment_registry shape:
-#   { "<canonical>": {"aliases": [...], "kind": "audience|line|indication|channel|market"} }
+# manifest.segment_registry mirrors manifest.brand_registry:
+#   "segment_registry": {
+#     "segments": [
+#       {"canonical": "generalists",
+#        "aliases": ["generalist", "generalists"],
+#        "kind": "audience"}          # audience | line | indication | channel | market
+#     ]
+#   }
 
 class SegmentRegistry:
     """Canonicalize sub-population descriptors found in KPI basis/scope/section text.
@@ -78,16 +84,24 @@ class SegmentRegistry:
     describes WHAT the number is measured over. Sub-population chunks are still
     indexed and retrievable - they are simply not allowed to masquerade as the
     headline read for the whole market.
+
+    Loads from manifest.segment_registry.segments; lookups are case-insensitive
+    on aliases. An absent or empty registry means everything classifies as
+    `total`, which is the pre-existing behaviour.
     """
 
     def __init__(self, manifest: dict):
+        registry = ((manifest or {}).get("segment_registry") or {}).get("segments", []) or []
         self._alias_to_canonical: dict[str, str] = {}
         self._kind: dict[str, str] = {}
-        registry = (manifest or {}).get("segment_registry") or {}
-        for canonical, spec in registry.items():
-            spec = spec or {}
-            self._kind[canonical] = spec.get("kind", "") or ""
-            for alias in [canonical, *(spec.get("aliases") or [])]:
+        for entry in registry:
+            if not isinstance(entry, dict):
+                continue
+            canonical = (entry.get("canonical") or "").strip()
+            if not canonical:
+                continue
+            self._kind[canonical] = entry.get("kind", "") or ""
+            for alias in entry.get("aliases") or [canonical]:
                 a = str(alias).strip().lower()
                 if a:
                     self._alias_to_canonical[a] = canonical

@@ -14,8 +14,9 @@ present whichever one happens to match the question's wording.
 Rather than hardcode a list of segments (which would overfit to today's deck and
 today's brands), this script DISCOVERS the vocabulary from the corpus, exactly
 the way discover_brands.py discovers brands. A human confirms the candidates and
-pastes them into `manifest.segment_registry`; chunker.py then stamps every chunk
-with `segment_level` (total | subsegment) and `segment_name`.
+pastes them into `manifest.segment_registry.segments` (same shape as
+`manifest.brand_registry.brands`); chunker.py then stamps every chunk with
+`segment_level` (total | subsegment) and `segment_name`.
 
 Where candidates come from
 --------------------------
@@ -82,11 +83,25 @@ def _informative_tokens(text: str) -> list[str]:
     return out
 
 
+def _registry_entries(manifest: dict, registry_key: str, list_key: str) -> list[dict]:
+    """Entries from a manifest registry, matching the brand_registry convention:
+
+        "<registry_key>": {"<list_key>": [{"canonical": ..., "aliases": [...]}, ...]}
+
+    Tolerates a missing registry and non-dict entries.
+    """
+    block = (manifest or {}).get(registry_key) or {}
+    entries = block.get(list_key, []) or []
+    return [e for e in entries if isinstance(e, dict)]
+
+
 def _known_aliases(manifest: dict) -> set[str]:
     known: set[str] = set()
-    for canonical, spec in ((manifest or {}).get("segment_registry") or {}).items():
-        known.add(canonical.strip().lower())
-        for a in (spec or {}).get("aliases") or []:
+    for entry in _registry_entries(manifest, "segment_registry", "segments"):
+        canonical = (entry.get("canonical") or "").strip()
+        if canonical:
+            known.add(canonical.lower())
+        for a in entry.get("aliases") or []:
             known.add(str(a).strip().lower())
     return known
 
@@ -94,10 +109,18 @@ def _known_aliases(manifest: dict) -> set[str]:
 def _brand_aliases(manifest: dict) -> set[str]:
     """Brand names are entities, not populations - never propose them as segments."""
     known: set[str] = set()
-    for canonical, spec in ((manifest or {}).get("brand_registry") or {}).items():
-        known.add(canonical.strip().lower())
-        for a in (spec or {}).get("aliases") or []:
-            known.add(str(a).strip().lower())
+    for entry in _registry_entries(manifest, "brand_registry", "brands"):
+        canonical = (entry.get("canonical") or "").strip()
+        if canonical:
+            known.update(t.lower() for t in canonical.split() if t)
+        for a in entry.get("aliases") or []:
+            known.update(t.lower() for t in str(a).split() if t)
+    # Brands named directly on a document are canonical too (BrandRegistry
+    # auto-extends the same way).
+    for doc in (manifest or {}).get("documents", []) or []:
+        brand = doc.get("brand")
+        if brand:
+            known.update(t.lower() for t in str(brand).split() if t)
     return known
 
 
@@ -199,8 +222,8 @@ def main() -> int:
                     "Review `candidate` values that name a POPULATION the metric is "
                     "measured over (an HCP audience, a line of therapy, an indication, "
                     "a channel, a market/sub-market). Add confirmed ones to "
-                    "manifest.segment_registry as "
-                    '{"<canonical>": {"aliases": [...], "kind": "audience|line|indication|channel|market"}} '
+                    "manifest.segment_registry.segments as "
+                    '{"canonical": "...", "aliases": [...], "kind": "audience|line|indication|channel|market"} '
                     "then re-run chunker.py. Ignore candidates that describe a metric, "
                     "a period, or a brand."
                 ),
