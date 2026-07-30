@@ -82,6 +82,11 @@ def chunk_to_doc(rec: dict, vector: list[float]) -> dict:
         "comparison_basis": rec.get("comparison_basis") or [],
         "page_role": rec.get("page_role", "") or "standard",
         "authority_boost": int(rec.get("authority_boost") or 0),
+        # population + period currency of this chunk (product_strategy ranking)
+        "segment_level": rec.get("segment_level", "") or "total",
+        "segment_name": rec.get("segment_name", "") or "",
+        "is_headline_period": bool(rec.get("is_headline_period", True)),
+        "evidence_boost": int(rec.get("evidence_boost") or 0),
         "has_comments": bool(rec.get("has_comments", False)),
         # chunk-level
         "chunk_type": rec.get("chunk_type", ""),
