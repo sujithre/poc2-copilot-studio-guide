@@ -139,31 +139,36 @@ def classify_segment(segments: "SegmentRegistry", *texts: str) -> tuple[str, str
 # latest period it reports on; anything measured over an earlier window is
 # historical context, not the current read.
 
-def doc_headline_period_end(pages: list[dict]) -> str:
-    """Latest period_end_date (YYYY-MM-DD) implied by any page or KPI of the doc.
+def page_period_end(page: dict) -> str:
+    """The period a PAGE reports on, as YYYY-MM-DD.
 
-    Falls back to dates derived from each page's fiscal_period / period_label so
-    that extractions without structured period fields still get a headline.
+    Deliberately page-relative rather than document-relative. A monthly deck
+    carries per-metric data lag - one brand's page runs through April while
+    another's runs through March - and the deck edition is later than both. A
+    document-level anchor would mark whole pages historical and demote their
+    headline figures.
+
+    What must be demoted is a trailing sub-window quoted INSIDE a page whose own
+    reporting period is more recent: a page reporting April YTD that also cites a
+    Nov-Jan share movement. Comparing each figure against its own page catches
+    exactly that and nothing else.
     """
-    best = ""
-    for page in pages or []:
-        candidates = [
-            page.get("period_end_date", ""),
-            derive_period_end_date(page.get("fiscal_period", ""), {}),
-            period_end_from_label(page.get("period_label", "")),
-        ]
-        for kp in page.get("kpis") or []:
-            candidates.append(kp.get("period_end_date", ""))
-        for candidate in candidates:
-            c = (candidate or "").strip()
-            if len(c) == 10 and c > best:
-                best = c
-    return best
+    for candidate in (
+        page.get("period_end_date", ""),
+        derive_period_end_date(page.get("fiscal_period", ""), {}),
+        period_end_from_label(page.get("period_label", "")),
+    ):
+        c = (candidate or "").strip()
+        if len(c) == 10:
+            return c
+    return ""
 
 
 def is_headline_period(period_end_date: str, headline_end: str) -> bool:
-    """True when this chunk measures the document's most recent period.
+    """True when this chunk measures its page's reporting period or later.
 
+    Later counts as headline because guidance and outlook rows are current
+    content, not stale; `is_forward_looking` distinguishes those separately.
     Unknown periods are treated as headline (neutral) so missing metadata never
     silently demotes a chunk; only a KNOWN older window is demoted.
     """
@@ -539,9 +544,9 @@ _MONTH_NUM = {
     "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
     "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
 }
-# "Nov'25", "Jan’26", "March 2026", "Mar '26", "Sept. 2025"
+# "Nov'25", "Jan’26", "March 2026", "Mar '26", "Mar-26", "Sept. 2025", "3/26"
 _LABEL_MONTH_RE = re.compile(
-    r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*[’'`\u2019]?\s*(\d{4}|\d{2})",
+    r"(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*[-/’'`]?\s*(\d{4}|\d{2})(?!\d)",
     re.IGNORECASE,
 )
 
@@ -1023,8 +1028,9 @@ def base_metadata(doc: dict, page_obj: dict, brands: BrandRegistry) -> dict:
         # below the authoritative PVM / W-S-SIT grid for the same period.
         "_grid_demote": _is_growth_contribution_twin(page_obj),
         # Private: consumed by emit_text to decide is_headline_period, then
-        # dropped. Set once per document in main() from the vision pages.
-        "_headline_period_end": doc.get("_headline_period_end", "") or "",
+        # dropped. Page-relative: a figure is historical only when its own window
+        # ends before the period THIS page reports on.
+        "_headline_period_end": page_period_end(page_obj),
         # Private: True only for docs routed to the product_strategy index, so
         # brand-performance behaviour cannot leak into financial_results or
         # external_messages. Dropped by emit_text.
@@ -1720,11 +1726,6 @@ def main() -> None:
             json.loads(f.read_text(encoding="utf-8"))
             for f in sorted(vision_dir.glob("page*.json"))
         ]
-
-        # The document's most recent reported period. Every chunk compares its
-        # own period against this, so an older trailing window is marked as
-        # historical rather than competing with the current read.
-        doc = {**doc, "_headline_period_end": doc_headline_period_end(pages)}
 
         # Pick the right per-doc path
         if doc.get("doc_type") == "ir_notes":
