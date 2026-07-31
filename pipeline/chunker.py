@@ -907,6 +907,38 @@ def _brand_cleared(page_meta: dict, row_meta: dict) -> bool:
     return len(page_meta.get("brand") or []) > 1 and not (row_meta.get("brand") or [])
 
 
+def _kpi_foreign_brand(chunk_meta: dict, kp: dict) -> str:
+    """The brand this KPI names, when that is NOT the brand the chunk will carry.
+
+    A competitor line on a multi-series chart arrives correctly attributed by the
+    extractor - "NBRx Share - Naive, brand='Ocrevus + SC', 53%" - but the brand
+    registry holds Novartis brands only, so `narrow_meta_brand` cannot match it
+    and leaves the chunk's brand as the page's. The competitor's 53% is then
+    published as ours. The record said whose it was; the pipeline forgot.
+
+    Compared against the RESOLVED chunk brand rather than the page's brand list,
+    because that is the label the reader will see. On a per-brand matrix the two
+    already agree, so nothing is flagged there.
+
+    Returns the stated brand, or '' when it matches what the chunk claims.
+    """
+    stated = str(kp.get("brand") or "").strip()
+    if not stated:
+        return ""
+    carried = chunk_meta.get("brand") or []
+    if any(str(b).strip().lower() == stated.lower() for b in carried):
+        return ""
+    return stated
+
+
+# A KPI whose category measures the MARKET rather than a participant in it. The
+# naive/switch split of a market is a property of the market, so prefixing it
+# with the page's brand turns "the switch segment is 49% of the market" into
+# "<Brand>'s switch share is 49%" - a fabricated brand figure built from a real
+# market one.
+_MARKET_LEVEL_KPI_CATEGORIES = frozenset({"market_size"})
+
+
 def _prefix_kpi_brand(row_meta: dict, text: str) -> str:
     """Lead a single-brand KPI chunk with its brand name so unfiltered semantic
     retrieval can disambiguate otherwise near-identical per-brand matrix rows.
@@ -1533,6 +1565,15 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry,
             # cannot be mis-attributed under unfiltered retrieval. The branded
             # table_row for this page still carries the number.
             continue
+        # Two ways a KPI can fail to belong to the page's brand. Both clear the
+        # filterable brand - the idiom narrow_meta_brand already uses for a row
+        # that is not attributable - which also makes _prefix_kpi_brand a no-op.
+        foreign_brand = _kpi_foreign_brand(kmeta, kp) if is_product_doc else ""
+        market_level = (is_product_doc and str(kp.get("category") or "").strip().lower()
+                        in _MARKET_LEVEL_KPI_CATEGORIES)
+        if foreign_brand or market_level:
+            kmeta = dict(kmeta)
+            kmeta["brand"] = []
         text = render_kpi(kp)
         aliases = kpi_period_aliases(kp, kmeta.get("fiscal_period", ""),
                                      kmeta.get("period_label", ""),
@@ -1542,6 +1583,13 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry,
         if combined:
             text = f"[{combined}] {text}"
         text = _prefix_kpi_brand(kmeta, text)
+        if foreign_brand:
+            # Name the brand the record actually gave, so the value stays usable
+            # as market context instead of becoming anonymous.
+            text = f"{foreign_brand} {text}"
+        elif market_level:
+            text = ("MARKET-LEVEL measure - describes the market itself, not any "
+                    "one brand's performance. " + text)
         # The population is described by the KPI's own descriptor fields, never
         # by the surrounding narrative - that is what keeps an audience / line of
         # therapy / indication cut from being read as the whole-market number.
