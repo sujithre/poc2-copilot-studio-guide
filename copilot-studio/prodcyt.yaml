@@ -5,7 +5,37 @@ modelDescription: Use when the user asks about prescription or brand performance
 beginDialog:
   kind: OnRecognizedIntent
   id: main
-  intent: {}
+
+  # ------------------------------------------------------------------
+  # Trigger phrases, not just a modelDescription.
+  #
+  # With an empty intent the orchestrator was free to answer the same
+  # question straight from the knowledge source instead of entering this
+  # topic. That path never applies the instructions below - no metric
+  # provenance, no denominator naming, no refusal to quote an unattributed
+  # chart series - so one question could return two answers of very
+  # different quality, and the weaker one looked just as confident.
+  #
+  # Phrases are brand-agnostic on purpose: they describe the SHAPE of a
+  # product-performance question, so a new brand needs no edit here.
+  # ------------------------------------------------------------------
+  intent:
+    triggerQueries:
+      - Has the brand gained or lost share
+      - Did we gain or lose market share
+      - What is the latest new patient share
+      - What is the latest NBRx share
+      - What is the latest TRx share
+      - What is the NBRx trend
+      - What is the TRx trend over the last three reported periods
+      - How is the brand performing versus target
+      - How is the brand performing versus prior year
+      - Which brands gained the most share
+      - Rank our brands by share growth
+      - What is the market share for this brand
+      - How did scripts and demand track this month
+      - What is the patient acquisition trend
+      - Show NBRx and TRx versus plan
 
   actions:
     # ------------------------------------------------------------------
