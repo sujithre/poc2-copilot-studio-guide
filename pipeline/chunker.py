@@ -143,6 +143,27 @@ def classify_segment(segments: "SegmentRegistry", *texts: str) -> tuple[str, str
 # are not mistaken for data.
 _MEASURE_RE = re.compile(r"[-+]?\$?\d[\d,\.]*\s*(?:%|pts?\b|bps\b|[bmk]\b)", re.I)
 
+# A line that transcribes what a chart draws, rather than stating a finding. The
+# extractor writes these into the page markdown so the values are searchable, but
+# they are read off a picture: chart-derived chunks already score evidence_boost 0
+# and the answer prompt refuses to attribute an unlabelled series to a brand. Such
+# a line therefore cannot serve as a page's whole-market evidence either.
+_CHART_LINE_RE = re.compile(r"\b(chart|graph|legend|endpoint|axis)\b", re.I)
+
+
+def _is_narrative_measure_line(line: str) -> bool:
+    """True when a stripped line states a measurement that counts as page evidence.
+
+    Excluded: headings; markdown table rows, because a table is chunked and
+    classified separately and counting its rows here judges the same numbers
+    twice; and chart transcriptions, which are not verifiable readings.
+    """
+    if not line or line.startswith("#") or line.startswith("|"):
+        return False
+    if _CHART_LINE_RE.search(line):
+        return False
+    return bool(_MEASURE_RE.search(line))
+
 
 def narrative_segment(segments: "SegmentRegistry", markdown: str) -> tuple[str, str]:
     """Classify a PAGE NARRATIVE as the whole-market read or a sub-population one.
@@ -159,14 +180,15 @@ def narrative_segment(segments: "SegmentRegistry", markdown: str) -> tuple[str, 
     registered segment. One whole-market figure anywhere keeps the page `total`.
     A page with no measurements at all is `total` (neutral) - absence of data is
     never evidence of a sub-cut.
+
+    What counts as a measurement line is decided by `_is_narrative_measure_line`,
+    which excludes markdown table rows and chart transcriptions.
     """
     named: list[str] = []
     measured = 0
     for raw in (markdown or "").splitlines():
         line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        if not _MEASURE_RE.search(line):
+        if not _is_narrative_measure_line(line):
             continue
         measured += 1
         name = segments.detect(line)

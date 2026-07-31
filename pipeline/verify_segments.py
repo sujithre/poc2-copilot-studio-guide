@@ -23,13 +23,28 @@ from glob import glob
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from chunker import SegmentRegistry, narrative_segment  # noqa: E402
+from chunker import PRODUCT_STRATEGY_INDEX, SegmentRegistry, narrative_segment  # noqa: E402
 from common import load_manifest, paths  # noqa: E402
 
 
 def _page_no(path: str) -> int:
     digits = "".join(c for c in os.path.basename(path) if c.isdigit())
     return int(digits) if digits else 0
+
+
+def _routing(manifest: dict) -> dict[str, tuple[str, str]]:
+    """doc_id -> (primary_index, doc_type). The vision sub-directory IS the doc_id."""
+    return {d.get("doc_id", ""): (d.get("primary_index", ""), d.get("doc_type", ""))
+            for d in manifest.get("documents", [])}
+
+
+def _applies(index: str, doc_type: str) -> bool:
+    """Does the chunker actually apply this rule to the page?
+
+    Only product-strategy docs are classified, and IR notes take a separate
+    chunking path entirely. Everything else is reported for information only.
+    """
+    return index == PRODUCT_STRATEGY_INDEX and doc_type != "ir_notes"
 
 
 def main() -> int:
@@ -43,6 +58,7 @@ def main() -> int:
     args = ap.parse_args()
 
     segments = SegmentRegistry(load_manifest())
+    routing = _routing(load_manifest())
     print(f"pages root      : {args.pages}")
     print(f"registry        : {len(segments.all_canonical)} segments")
 
@@ -70,32 +86,60 @@ def main() -> int:
         print(f"\nno page*.json found under {args.pages}")
         return 0
 
+    scored = 0
+    unknown: set[str] = set()
     demoted: list[tuple[str, str, str]] = []
+    ignored: list[tuple[str, str, str]] = []
     for path in page_files:
+        doc_id = os.path.basename(os.path.dirname(path))
+        if doc_id not in routing:
+            unknown.add(doc_id)
+        index, doc_type = routing.get(doc_id, ("", ""))
+        in_scope = _applies(index, doc_type)
+        if in_scope:
+            scored += 1
         with open(path, encoding="utf-8") as fh:
             page = json.load(fh)
         level, name = narrative_segment(segments, page.get("markdown") or "")
         if level == "subsegment":
-            demoted.append((path, name, page.get("markdown") or ""))
+            bucket = demoted if in_scope else ignored
+            bucket.append((path, name, page.get("markdown") or ""))
 
+    rate = f"{100 * len(demoted) / scored:.0f}% of in-scope" if scored else "no in-scope pages"
     print("\nNARRATIVE CLASSIFICATION")
     print(f"  pages         : {len(page_files)}")
-    print(f"  stay total    : {len(page_files) - len(demoted)}")
-    print(f"  demoted       : {len(demoted)}  ({100 * len(demoted) / len(page_files):.0f}%)")
-    if len(demoted) > len(page_files) * 0.35:
+    print(f"  in scope      : {scored}   (product_strategy, non-IR - the rule runs only here)")
+    print(f"  demoted       : {len(demoted)}  ({rate})")
+    if scored and len(demoted) > scored * 0.35:
         print("  ^^ REVIEW: a demotion rate this high usually means an alias is too broad")
+
+    if unknown:
+        print("\nUNKNOWN DOCUMENTS  (vision folder has no manifest entry - the chunker")
+        print("                    will not process these, and this report cannot route them)")
+        for doc_id in sorted(unknown):
+            print(f"  {doc_id}")
 
     print("\nDEMOTED PAGES  (evidence_boost 3 -> 1)")
     for path, name, _ in demoted:
         rel = os.path.relpath(path, args.pages)
         print(f"  {rel:<44} -> {name}")
+    if not demoted:
+        print("  none")
 
-    from chunker import _MEASURE_RE  # noqa: WPS436  (report-only introspection)
+    if ignored:
+        print("\nNOT AFFECTED  (classified, but outside the rule's scope)")
+        for path, name, _ in ignored:
+            rel = os.path.relpath(path, args.pages)
+            doc_id = os.path.basename(os.path.dirname(path))
+            index, doc_type = routing.get(doc_id, ("", ""))
+            print(f"  {rel:<44} -> {name:<12} [{index or '?'}/{doc_type or '?'}]")
+
+    from chunker import _is_narrative_measure_line  # noqa: WPS436  (report-only)
     for path, name, md in demoted[:args.show]:
         print(f"\n  --- measured lines in {os.path.relpath(path, args.pages)} ---")
         for raw in md.splitlines():
             line = raw.strip()
-            if line and not line.startswith("#") and _MEASURE_RE.search(line):
+            if _is_narrative_measure_line(line):
                 print(f"    [{segments.detect(line) or 'TOTAL'}] {line[:110]}")
 
     print("\nALIAS SELF-CHECK:", "PASS" if ok else "FAIL")
