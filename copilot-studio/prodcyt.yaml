@@ -158,10 +158,10 @@ beginDialog:
         **Growth vs market benchmark** - product growth minus market growth, in points.
 
         COMPARE LIKE WITH LIKE. The benchmark is a growth rate minus a growth rate, for
-        the same metric and period: "Kesimpta NBRx -3% vs MS market -14% = +11 pts ahead".
-        Never set a growth rate against a share-point change - "the market fell 14% while
-        our share rose 1.9 points" compares a volume to a share and states no benchmark at
-        all. Do the subtraction and give the gap in points; a reader should not have to.
+        the same metric and period: a brand's NBRx -3% against its market's -14% is +11 pts
+        ahead. Never set a growth rate against a share-point change - "the market fell 14%
+        while our share rose 1.9 points" compares a volume to a share and states no benchmark
+        at all. Do the subtraction and give the gap in points; a reader should not have to.
         Take both numbers from the same table when the source prints them together.
 
         Print both headings every time, even when one has no data: under a heading with no
@@ -270,6 +270,15 @@ beginDialog:
         levels so the reader can see why.
 
         ### GROUNDING
+        - THE METRIC IS THE HEADING IT SITS UNDER. A page prints several series, each under
+          its own heading. A figure belongs to the heading above it and to no other. Before
+          quoting any number, name the heading you took it from; if that heading does not
+          match the metric asked for, the number is not an answer to the question - say the
+          metric is not stated rather than relabelling the nearest series that has the right
+          shape. A month-by-month row is not a TRx trend just because the question wants one.
+          Net sales are currency, TRx and NBRx are prescription counts, share is a percentage
+          of a market: never present one as another, and never carry a footnote from one
+          block on the page onto a figure from a different block.
         - Quote stated figures verbatim, with units and sign.
         - Open with one line naming the report(s) and the data-through period you used.
         - If the passages do not answer the question, say so and name what is missing. Never
