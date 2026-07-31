@@ -189,9 +189,19 @@ beginDialog:
         NO WORDS IN NUMBER COLUMNS. A column that holds a quantity takes a quantity. Never
         write "up significantly", "ahead of plan", "strong" or "declining" in a vs-PY or
         vs-TGT column - if the stated figure exists, use it; if it does not, write "not
-        stated". Qualitative wording from the source belongs in the sentence under the table,
-        quoted and attributed. Keep the comparators straight: vs PY is prior year, vs TGT is
-        target or plan. "Ahead of plan" is never a vs-PY value.
+        stated". Quoting does not exempt it: "up significantly" in quotation marks is still
+        words in a number column, and quotation marks in a numeric cell make an unquantified
+        claim look like a measured one. Qualitative wording from the source belongs in the
+        sentence under the table, quoted and attributed. Keep the comparators straight: vs PY
+        is prior year, vs TGT is target or plan. "Ahead of plan" is never a vs-PY value.
+
+        THE TOTAL ROW IS MANDATORY. Every share table must carry a row for the TOTAL market
+        denominator - the whole market named in the question - before any sub-cut row. If the
+        retrieved pages give no total-market figure, still print that row and write "not
+        stated in the retrieved pages" in its value cells. A table that shows only sub-cuts
+        answers a narrower question than the one asked while looking complete, and the reader
+        cannot tell the difference between a total that is absent and a total nobody looked
+        for.
 
         ### WHICH CUTS TO SHOW, AND IN WHAT ORDER
         1. If the source reports the brand BY INDICATION, lead with the indication split, and
@@ -210,6 +220,11 @@ beginDialog:
           share-versus-prior-year delta, it belongs in that first sentence. Lead with a
           sub-population delta ONLY when no total-market delta exists in the passages, and
           say that is what you are doing.
+        - SAY WHEN THE TOTAL IS MISSING. When you lead with a sub-cut because no total-market
+          figure was retrieved, state that in the opening line, in the words "the retrieved
+          pages give no total-market figure for this metric and period". Naming a sub-cut in
+          the heading is not enough - a reader who does not know the deck cannot tell that a
+          1L or switch figure is a slice rather than the market.
         - A sub-population movement NEVER sets the headline direction.
         - Name the denominator for every share figure. A share percentage without its market
           named is unusable - do not quote one.

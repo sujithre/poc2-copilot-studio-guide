@@ -113,12 +113,18 @@ class SegmentRegistry:
         return sorted(set(self._alias_to_canonical.values()))
 
     def detect(self, *texts: str) -> str:
-        """Return the canonical segment named in any of `texts`, or '' for total."""
+        """Return the canonical segment named in any of `texts`, or '' for total.
+
+        Aliases match with an optional English plural suffix, so a registry entry
+        for "let switch" also matches "LET switches". Decks pluralize freely and
+        an un-matched plural silently mis-classifies a sub-population row as the
+        whole-market read - the exact failure this registry exists to prevent.
+        """
         haystack = " ".join(t for t in texts if t).lower()
         if not haystack:
             return ""
         for alias in self._ordered:
-            if re.search(rf"(?<![a-z0-9]){re.escape(alias)}(?![a-z0-9])", haystack):
+            if re.search(rf"(?<![a-z0-9]){re.escape(alias)}(?:e?s)?(?![a-z0-9])", haystack):
                 return self._alias_to_canonical[alias]
         return ""
 
@@ -130,6 +136,46 @@ def classify_segment(segments: "SegmentRegistry", *texts: str) -> tuple[str, str
     """-> (segment_level, segment_name). segment_level is 'total' or 'subsegment'."""
     name = segments.detect(*texts)
     return ("subsegment", name) if name else ("total", "")
+
+
+# A line carries a measurement when it states a number with a unit. Bare years
+# and list numbering are excluded by requiring the unit, so headings and prose
+# are not mistaken for data.
+_MEASURE_RE = re.compile(r"[-+]?\$?\d[\d,\.]*\s*(?:%|pts?\b|bps\b|[bmk]\b)", re.I)
+
+
+def narrative_segment(segments: "SegmentRegistry", markdown: str) -> tuple[str, str]:
+    """Classify a PAGE NARRATIVE as the whole-market read or a sub-population one.
+
+    A page summary normally is the whole picture, so it stays `total` and outranks
+    the rows mined out of it. But some pages summarise nothing but a sub-cut - a
+    slide whose every stated figure is a line-of-therapy or channel split. Left as
+    `total`, such a page ties the real headline slide on evidence and then wins on
+    lexical overlap, because a sub-cut slide repeats the question's own wording
+    ("gained share") while the headline slide states the number plainly.
+
+    The test is deliberately conservative: only lines that actually state a
+    measurement count, and the page is demoted only when EVERY one of them names a
+    registered segment. One whole-market figure anywhere keeps the page `total`.
+    A page with no measurements at all is `total` (neutral) - absence of data is
+    never evidence of a sub-cut.
+    """
+    named: list[str] = []
+    measured = 0
+    for raw in (markdown or "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if not _MEASURE_RE.search(line):
+            continue
+        measured += 1
+        name = segments.detect(line)
+        if not name:
+            return ("total", "")
+        named.append(name)
+    if not measured:
+        return ("total", "")
+    return ("subsegment", max(set(named), key=named.count))
 
 
 # ---------------------------------------------------------------------------
@@ -1360,10 +1406,13 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry,
 
     # Slide / prose body
     #
-    # NOTE: the narrative body is deliberately classified as `total`, even when
-    # it discusses sub-populations. A page-level summary is the whole picture -
-    # it is exactly the chunk that must outrank the individual sub-population
-    # rows mined out of it. Segment classification applies to the DERIVED rows.
+    # NOTE: the narrative body is classified as `total` by default, even when it
+    # discusses sub-populations in passing. A page-level summary is the whole
+    # picture - it is exactly the chunk that must outrank the individual
+    # sub-population rows mined out of it. The one exception is a page that
+    # summarises ONLY a sub-cut; `narrative_segment` detects that structurally.
+    # Classification reads the markdown alone, not the appended figure captions,
+    # because figures carry their own chunks and their own classification.
     md = page_obj.get("markdown") or ""
     if md.strip():
         figures_text = ""
@@ -1375,7 +1424,9 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry,
             chunk_type = "slide"
         else:
             chunk_type = classify_text_style(body)
-        yield primary, emit_text(meta, chunk_type, body)
+        n_level, n_name = narrative_segment(segments, md) if is_product_doc else ("total", "")
+        yield primary, emit_text(meta, chunk_type, body,
+                                 segment_level=n_level, segment_name=n_name)
 
     # Tables: one whole-table chunk + one chunk per row
     for t in page_obj.get("tables", []):
