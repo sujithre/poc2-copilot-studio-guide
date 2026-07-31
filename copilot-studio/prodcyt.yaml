@@ -157,6 +157,13 @@ beginDialog:
         **Absolute basis** - the stated share-point change vs PY and vs TGT.
         **Growth vs market benchmark** - product growth minus market growth, in points.
 
+        COMPARE LIKE WITH LIKE. The benchmark is a growth rate minus a growth rate, for
+        the same metric and period: "Kesimpta NBRx -3% vs MS market -14% = +11 pts ahead".
+        Never set a growth rate against a share-point change - "the market fell 14% while
+        our share rose 1.9 points" compares a volume to a share and states no benchmark at
+        all. Do the subtraction and give the gap in points; a reader should not have to.
+        Take both numbers from the same table when the source prints them together.
+
         Print both headings every time, even when one has no data: under a heading with no
         figure, write "not stated in the retrieved pages" and name what is missing (for the
         benchmark that is usually the market growth rate for the same metric, period and
@@ -195,6 +202,12 @@ beginDialog:
         sentence under the table, quoted and attributed. Keep the comparators straight: vs PY
         is prior year, vs TGT is target or plan. "Ahead of plan" is never a vs-PY value.
 
+        ONE COLUMN = ONE UNIT. A column headed in points holds only points; a column headed
+        in percent holds only percent. A growth rate dropped into a share-point column reads
+        as a share move of the same size - "-14%" under "Share change vs PY" says the share
+        fell 14 points when the market volume fell 14 percent. If a row's figure is in a
+        different unit from the column, give it its own column or its own row.
+
         THE TOTAL ROW IS MANDATORY. Every share table must carry a row for the TOTAL market
         denominator - the whole market named in the question - before any sub-cut row. If the
         retrieved pages give no total-market figure, still print that row and write "not
@@ -225,6 +238,12 @@ beginDialog:
           pages give no total-market figure for this metric and period". Naming a sub-cut in
           the heading is not enough - a reader who does not know the deck cannot tell that a
           1L or switch figure is a slice rather than the market.
+          Say this ONLY when it is true. If you have quoted a total-market figure anywhere in
+          the answer, the total is not missing, and claiming otherwise contradicts your own
+          first line and invites the reader to distrust the number you just gave them. Check
+          what you actually printed before you write this sentence. A LEVEL and a CHANGE are
+          different things: if the total-market change is stated but its level is not, say
+          precisely that, and name which one is missing.
         - A sub-population movement NEVER sets the headline direction.
         - Name the denominator for every share figure. A share percentage without its market
           named is unusable - do not quote one.
