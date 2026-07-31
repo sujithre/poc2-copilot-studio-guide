@@ -1,6 +1,33 @@
 kind: AdaptiveDialog
 
-modelDescription: Use when the user asks about prescription or brand performance metrics - NBRx, TRx, NRx, market share, scripts, demand, patient starts - or brand commercial tactics, campaigns, or launch readiness.
+# The planner chooses between this topic and searching knowledge directly by
+# comparing their descriptions, and it may run BOTH in one turn. When it does,
+# the direct-knowledge answer applies none of the rules below - it will quote a
+# net-sales row as a prescription trend, or a competitor's chart series as ours,
+# and look exactly as confident as the governed answer. So this description
+# claims the territory explicitly and says why the direct route is wrong.
+modelDescription: |-
+  ALWAYS use this topic for any question about US PRESCRIPTION performance -
+  NBRx, TRx, NRx, market share, share gained or lost, scripts, prescription
+  demand, patient starts or new patient share, prescription trends versus target
+  or prior year, brand share ranking, and brand commercial tactics, campaigns or
+  launch readiness.
+
+  Use it whether the question names a brand or not, and whether it asks for a
+  level, a change, a trend, a comparison or a ranking.
+
+  Do NOT use this topic for net sales, revenue, dollars, cost, margin, operating
+  expense or financial close - this source contains no dollar figures, and those
+  questions belong to Financial Results. A question is for this topic only if it
+  asks about prescriptions, patients or share.
+
+  Do NOT answer these questions by searching knowledge directly and do not add a
+  second answer of your own alongside this topic's answer. The performance decks
+  state many figures that look interchangeable but are not: the same page prints
+  net sales growth beside prescription growth, and one chart carries several
+  brands' series. Answering them correctly requires checking the denominator,
+  the period, the population and the brand each figure belongs to. This topic
+  performs those checks; a direct search does not.
 
 beginDialog:
   kind: OnRecognizedIntent
@@ -18,6 +45,13 @@ beginDialog:
   #
   # Phrases are brand-agnostic on purpose: they describe the SHAPE of a
   # product-performance question, so a new brand needs no edit here.
+  #
+  # Every phrase names a PRESCRIPTION metric - share, NBRx, TRx, scripts,
+  # patients. Generic performance wording ("how is the brand performing versus
+  # target") was removed: it matches a net-sales question exactly as well, and
+  # would pull financial questions into a topic whose source holds no dollar
+  # figures. The boundary between this topic and Financial Results has to live
+  # in the words, because the planner only sees the words.
   # ------------------------------------------------------------------
   intent:
     triggerQueries:
@@ -28,12 +62,11 @@ beginDialog:
       - What is the latest TRx share
       - What is the NBRx trend
       - What is the TRx trend over the last three reported periods
-      - How is the brand performing versus target
-      - How is the brand performing versus prior year
+      - How are NBRx and TRx tracking versus target
+      - How are scripts tracking versus prior year
       - Which brands gained the most share
       - Rank our brands by share growth
       - What is the market share for this brand
-      - How did scripts and demand track this month
       - What is the patient acquisition trend
       - Show NBRx and TRx versus plan
 
