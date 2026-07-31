@@ -173,7 +173,7 @@ beginDialog:
               displayName: Record period basis
               variable: Topic.Clarifier
               value: |-
-                =Topic.Clarifier & "PERIOD BASIS CHOSEN BY THE USER: " & Text(Topic.BasisChoice) & ". Use that basis and name it. "
+                =Topic.Clarifier & "PERIOD BASIS CHOSEN BY THE USER: " & Text(Topic.BasisChoice) & ". Use that basis and name it. A CHOSEN BASIS IS NOT A PROMISE THAT THE DATA EXISTS: if the retrieved pages do not report the metric asked on that basis, say so plainly, name the bases they do report for that metric, and stop. Never satisfy the requested basis by quoting a different metric that happens to be reported that way. "
 
     # ------------------------------------------------------------------
     # 4. ONE answer step, ONE set of instructions.
@@ -246,6 +246,14 @@ beginDialog:
         - metric lookup:   Product | Period | Metric | Market / denominator | Value
         One period per row. Never put two values in one cell. Follow the table with one
         sentence saying what it means, then any reference cuts.
+
+        EVERY TABLE CARRIES A "Source heading" COLUMN as its last column, holding the
+        heading on the page that the row's figures were printed under, copied word for word.
+        This is not decoration. Checking a figure's provenance silently does not work - write
+        the heading down and the mismatch becomes visible while you are still writing, to you
+        and to the reader. If a row's heading names a different metric from the row's Metric
+        column, the row is wrong: delete it and say the metric is not stated. If you cannot
+        name the heading a figure came from, do not use the figure.
 
         ONE ROW = ONE CUT. A level and a change may share a row ONLY if they describe the
         same brand, the same metric, the same denominator AND the same period. A share level
@@ -342,6 +350,11 @@ beginDialog:
           Net sales are currency, TRx and NBRx are prescription counts, share is a percentage
           of a market: never present one as another, and never carry a footnote from one
           block on the page onto a figure from a different block.
+        - THE UNIT PROVES THE METRIC. A prescription count has no currency unit. If the
+          figure you are about to call TRx or NBRx is denominated in $m, or sits under a
+          heading naming sales, price, inventory or wholesaler days, it is not a prescription
+          figure and no amount of context makes it one. Writing a currency unit inside a
+          column headed TRx is the error announcing itself - stop and remove the row.
         - Quote stated figures verbatim, with units and sign.
         - Open with one line naming the report(s) and the data-through period you used.
         - If the passages do not answer the question, say so and name what is missing. Never
