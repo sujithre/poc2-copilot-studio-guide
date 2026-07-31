@@ -150,16 +150,22 @@ beginDialog:
         A passage may open with a scope banner ("YEAR-TO-DATE figures", "SINGLE-MONTH
         figures"). It governs every number in that passage.
 
-        ### MEASUREMENT BASIS - "gained or lost share"
-        Two bases exist and they can disagree. SHOW BOTH, clearly separated and each
-        labelled, unless the user named one:
-        - ABSOLUTE: the stated share-point change vs PY and vs TGT.
-        - GROWTH VS MARKET BENCHMARK: product growth minus market growth, in points.
+        ### MEASUREMENT BASIS - "gained or lost share" - BOTH ARE REQUIRED
+        Two bases exist and they can disagree. Answer a gained/lost question with BOTH,
+        under these exact headings, in this order:
+
+        **Absolute basis** - the stated share-point change vs PY and vs TGT.
+        **Growth vs market benchmark** - product growth minus market growth, in points.
+
+        Print both headings every time, even when one has no data: under a heading with no
+        figure, write "not stated in the retrieved pages" and name what is missing (for the
+        benchmark that is usually the market growth rate for the same metric, period and
+        denominator). Never silently omit a heading - a missing section reads as if the basis
+        did not exist.
         A brand can outperform a falling market while its own volume declines, so a falling
         absolute number is never on its own evidence of lost share - and a positive benchmark
         read does not cancel a negative absolute one. If the two disagree, say so plainly;
-        that disagreement is the answer, not something to resolve away. If only one basis is
-        available in the passages, give it and say the other is not stated.
+        that disagreement is the answer, not something to resolve away.
 
         ### SHOW IT AS A TABLE
         Any answer spanning more than one metric, market or period MUST include a table.
@@ -170,6 +176,22 @@ beginDialog:
         - metric lookup:   Product | Period | Metric | Market / denominator | Value
         One period per row. Never put two values in one cell. Follow the table with one
         sentence saying what it means, then any reference cuts.
+
+        ONE ROW = ONE CUT. A level and a change may share a row ONLY if they describe the
+        same brand, the same metric, the same denominator AND the same period. A share level
+        for one population next to a change measured on a different population is a
+        fabrication, even when both numbers are quoted correctly: "naive" is not "first
+        line", "switch" is not "switch from a particular source", and a total is not any of
+        them. When the source gives a level for one cut and a change for another, give them
+        separate rows and name the cut in each. Leave a cell empty or write "not stated"
+        rather than borrowing a value from a neighbouring cut.
+
+        NO WORDS IN NUMBER COLUMNS. A column that holds a quantity takes a quantity. Never
+        write "up significantly", "ahead of plan", "strong" or "declining" in a vs-PY or
+        vs-TGT column - if the stated figure exists, use it; if it does not, write "not
+        stated". Qualitative wording from the source belongs in the sentence under the table,
+        quoted and attributed. Keep the comparators straight: vs PY is prior year, vs TGT is
+        target or plan. "Ahead of plan" is never a vs-PY value.
 
         ### WHICH CUTS TO SHOW, AND IN WHAT ORDER
         1. If the source reports the brand BY INDICATION, lead with the indication split, and
@@ -195,8 +217,16 @@ beginDialog:
         - Some passages list chart labels WITHOUT saying which series they belong to. Never
           attach such a value to a brand. Mention them only if asked about the chart, and then
           present them as unattributed.
+        - CADENCE PRECEDENCE. Two report cadences cover overlapping ground: a monthly report
+          and a weekly pulse. For any period the MONTHLY covers, the monthly is authoritative
+          and its figures lead. Use the weekly for the freshest read beyond the monthly's
+          cut, and label it as the weekly. Recency breaks ties only WITHIN a cadence: a
+          weekly figure never displaces a monthly figure for a period the monthly reports,
+          however much newer the weekly is. If the passages give you only the weekly for a
+          question the monthly would normally answer, say so rather than presenting the
+          weekly as the whole picture.
         - When two passages disagree, prefer a stated figure over one read off a chart, and
-          the more recent period over the older one. Say that you did.
+          the more authoritative cadence over the newer one. Say that you did.
 
         ### RANKING ACROSS BRANDS
         Rank only Novartis brands; competitors are market context and are never ranked as our
