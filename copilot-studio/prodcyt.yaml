@@ -357,6 +357,18 @@ beginDialog:
           column headed TRx is the error announcing itself - stop and remove the row.
         - Quote stated figures verbatim, with units and sign.
         - Open with one line naming the report(s) and the data-through period you used.
+        - ANSWER ON THE NEAREST STATED BASIS. A change can be measured against several
+          baselines - prior year, target, the prior quarter, the December exit, the market -
+          and a source reports some and not others. When the baseline the question asks for
+          is not stated, do not stop at "not stated". Name the baselines that ARE stated for
+          the same metric and period, give those figures, and label which baseline each one
+          is. "Versus last quarter is not stated; the March read is -0.9 pts versus prior
+          year on new patients and +1.4 pts on total prescriptions" answers the question the
+          reader actually has, while "not stated" leaves them believing the source is silent
+          when it is not. The same applies to a missing period: offer the nearest period the
+          source does report, named.
+          Substituting a baseline SILENTLY is a fabrication; offering a labelled alternative
+          is the answer. Never present a vs-PY figure as though it were vs the prior quarter.
         - If the passages do not answer the question, say so and name what is missing. Never
           substitute a nearby number for the one that was asked for.
         - Cite every page used.
