@@ -1313,7 +1313,8 @@ def _by_product_summary(meta: dict, t: dict) -> str:
     return out
 
 
-def _serving_shadow_kpi(page_meta: dict, kpi_meta: dict, kp: dict):
+def _serving_shadow_kpi(page_meta: dict, kpi_meta: dict, kp: dict,
+                        segment_level: str = "total", segment_name: str = ""):
     """Build an ADDITIONAL natural-language answer chunk for a financial KPI that
     lives on a page NOT tagged 'slide_financials' - i.e. the brand-matrix
     outlook / Latest-Outlook grids stored as page_kind 'table' (e.g. "FY
@@ -1323,7 +1324,12 @@ def _serving_shadow_kpi(page_meta: dict, kpi_meta: dict, kp: dict):
     information found" even though the figure is in the index. This shadow chunk
     is tagged 'slide_financials' and written as a clean sentence, so it retrieves
     like the p.7/13/14 chunks that already work. Returns an emit dict or None;
-    it is PURELY additive (existing chunks and Azure/smoke are unchanged)."""
+    it is PURELY additive (existing chunks and Azure/smoke are unchanged).
+
+    The caller MUST pass the classification it gave the primary chunk. The shadow
+    restates the same fact in plainer words, so if it defaulted to `total` it
+    would launder a demoted sub-population figure straight back into the headline
+    tier - the twin outranking the row it was derived from."""
     if (page_meta.get("page_kind") or "").startswith("slide_financials"):
         return None
     if not _is_financial_slide(page_meta):
@@ -1333,7 +1339,8 @@ def _serving_shadow_kpi(page_meta: dict, kpi_meta: dict, kp: dict):
         return None
     smeta = dict(kpi_meta)
     smeta["page_kind"] = "slide_financials"
-    return emit_text(smeta, "kpi_row", sentence, section=kp.get("name", ""))
+    return emit_text(smeta, "kpi_row", sentence, section=kp.get("name", ""),
+                     segment_level=segment_level, segment_name=segment_name)
 
 
 def emit_text(meta: dict, chunk_type: str, text: str, section: str = "",
@@ -1543,7 +1550,7 @@ def chunks_from_page(doc: dict, page_obj: dict, brands: BrandRegistry,
         )
         yield primary, emit_text(kmeta, "kpi_row", text, section=kp.get("name", ""),
                                  segment_level=k_level, segment_name=k_name)
-        shadow = _serving_shadow_kpi(meta, kmeta, kp)
+        shadow = _serving_shadow_kpi(meta, kmeta, kp, k_level, k_name)
         if shadow is not None:
             yield primary, shadow
 
